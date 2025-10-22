@@ -5,7 +5,7 @@
 
 ## Design Patterns Employed:
 
-### 1) Chain of Responsibility (CoR) — “pass the form down the desk”
+### 1) Chain of Responsibility (CoR)
 
 **Simple idea:** Imagine a paper form moving across several desks. Each person checks one rule: dates make sense, room fits the class, equipment is available, the requester has permission, etc. If any rule fails, the form is stamped “Rejected” and stops there. If every desk approves, the request passes.
 
