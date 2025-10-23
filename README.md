@@ -7,9 +7,9 @@
 
 ### 1) Chain of Responsibility (CoR)
 
-**Simple idea:** Imagine a paper form moving across several desks. Each person checks one rule: dates make sense, room fits the class, equipment is available, the requester has permission, etc. If any rule fails, the form is stamped “Rejected” and stops there. If every desk approves, the request passes.
+**idea:** Imagine a paper form moving across several desks. Each person checks one rule: dates make sense, room fits the class, equipment is available, the requester has permission, etc. If any rule fails, the form is stamped “Rejected” and stops there. If every desk approves, the request passes.
 
-**Why we like it:** Our university rules can change, and different faculties may add their own checks. With CoR, we plug in or reorder checks without touching one giant function. Each check lives in its own tiny class, which makes unit testing and debugging straightforward.
+**Why:** Our university rules can change, and different faculties may add their own checks. With CoR, we plug in or reorder checks without touching one giant function. Each check lives in its own tiny class, which makes unit testing and debugging straightforward.
 
 **Where we use it:** Validating **reservation requests** in the Reservations Service: time bounds → overlap check → capacity → equipment → policy → role permission.
 
@@ -28,11 +28,11 @@
 
 ---
 
-### 2) Strategy — “pick a policy like a plugin”
+### 2) Strategy
 
-**Simple idea:** Different faculties may prefer different scheduling policies (earliest slot, same‑building preference, minimize walking distance, keep cohorts in one wing). Strategy lets us swap **the algorithm** without rewriting the rest of the service.
+**idea:** Different faculties may prefer different scheduling policies (earliest slot, same‑building preference, minimize walking distance, keep cohorts in one wing). Strategy lets us swap **the algorithm** without rewriting the rest of the service.
 
-**Why we like it:** We can A/B test and tune policies per semester or department. It avoids giant `switch` statements spread everywhere. Each policy becomes a small, focused class that’s easy to benchmark and test.
+**Why:** We can A/B test and tune policies per semester or department. It avoids giant `switch` statements spread everywhere. Each policy becomes a small, focused class that’s easy to benchmark and test.
 
 **Where we use it:** **Conflict detection & slot selection** (which available room/time to propose when there are options).
 
@@ -50,11 +50,11 @@
 
 ---
 
-### 3) Observer (Publish–Subscribe via MQTT) — “announce news, let listeners react”
+### 3) Observer (Publish–Subscribe via MQTT)
 
-**Simple idea:** When something happens (a reservation gets approved), the service **publishes an event**. Anyone interested (notifications, hallway signage, analytics) **subscribes** and reacts. The publisher doesn’t know or care who listens.
+**idea:** When something happens (a reservation gets approved), the service **publishes an event**. Anyone interested (notifications, hallway signage, analytics) **subscribes** and reacts. The publisher doesn’t know or care who listens.
 
-**Why we like it:** This **decouples** services. We don’t have to call five different services every time. If a consumer is down, MQTT can retain or replay messages (depending on QoS) and the system is more resilient.
+**Why:** This **decouples** services. We don’t have to call five different services every time. If a consumer is down, MQTT can retain or replay messages (depending on QoS) and the system is more resilient.
 
 **Where we use it:** Emitting domain events like `reservation.requested`, `reservation.approved`, `reservation.rejected`, `room.updated`. The Notifications service subscribes and sends emails/webhooks; future services (calendar sync, digital signage) can subscribe later **without changing the producer**.
 
@@ -73,11 +73,11 @@
 
 ---
 
-### 4) Command — “package an action with its data”
+### 4) Command
 
-**Simple idea:** We wrap each user action as a **Command object**: `CreateReservation`, `ApproveReservation`, `CancelReservation`, `RescheduleReservation`. A command carries the **intent** plus all data it needs and can be **queued, retried, logged, and audited** consistently.
+**idea:** We wrap each user action as a **Command object**: `CreateReservation`, `ApproveReservation`, `CancelReservation`, `RescheduleReservation`. A command carries the **intent** plus all data it needs and can be **queued, retried, logged, and audited** consistently.
 
-**Why we like it:** Commands make it easy to add **idempotency** (same command key won’t double‑book), **retries** on temporary failures, and **audit trails** (who did what, when). They also keep the application layer clean and uniform.
+**Why:** Commands make it easy to add **idempotency** (same command key won’t double‑book), **retries** on temporary failures, and **audit trails** (who did what, when). They also keep the application layer clean and uniform.
 
 **Where we use it:** Reservation lifecycle operations and admin actions. Commands can be executed synchronously or sent to a work queue when needed.
 
@@ -96,11 +96,11 @@
 
 ---
 
-### 5) Factory Method (supporting) — “one door to create clients cleanly”
+### 5) Factory Method (supporting)
 
-**Simple idea:** Instead of sprinkling `new MqttClient(...)` or `new Pool(...)` everywhere, we centralize creation behind small factories. Tests can swap real clients with fakes/mocks easily. Deployments can change providers via configuration.
+**idea:** Instead of sprinkling `new MqttClient(...)` or `new Pool(...)` everywhere, we centralize creation behind small factories. Tests can swap real clients with fakes/mocks easily. Deployments can change providers via configuration.
 
-**Why we like it:** Makes code **testable** and **portable** (local vs. cloud). It keeps infrastructure details out of business logic.
+**Why:** Makes code **testable** and **portable** (local vs. cloud). It keeps infrastructure details out of business logic.
 
 **Where we use it:** Creating DB pools, MQTT clients, mail/webhook adapters based on environment (dev/test/prod).
 
