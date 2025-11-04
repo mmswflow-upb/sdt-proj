@@ -1,140 +1,256 @@
-# Campus Reservations — Milestone 1
-
-**Team:** Sakka Mohamad‑Mario · Al‑Khalidy Essam · Zafar Azzam  
-**Project:** Campus‑wide backend to request and approve **room/lab reservations** for courses, labs, exams, and events. Proposed techstack: **Express + TypeScript**, **Docker**, **3 microservices**, **MQTT** for events, and **CI/CD on GCP**. (later milestones)
-
-## Design Patterns Employed:
-
-### 1) Chain of Responsibility (CoR)
-
-**idea:** Imagine a paper form moving across several desks. Each person checks one rule: dates make sense, room fits the class, equipment is available, the requester has permission, etc. If any rule fails, the form is stamped “Rejected” and stops there. If every desk approves, the request passes.
-
-**Why:** Our university rules can change, and different faculties may add their own checks. With CoR, we plug in or reorder checks without touching one giant function. Each check lives in its own tiny class, which makes unit testing and debugging straightforward.
-
-**Where we use it:** Validating **reservation requests** in the Reservations Service: time bounds → overlap check → capacity → equipment → policy → role permission.
-
-**Benefits over simpler options:**  
-- A single big `validate()` full of `if/else` grows messy and is hard to test.  
-- CoR is **composable** (add/remove steps), **orderable** (policy first or last), and **short‑circuits** early on failures.
-
-#### Comparison — Validation Approaches
-
-| Approach | Problem Context | Why it fits | Simpler Alternative | Trade‑offs | Where we use it |
-|---|---|---|---|---|---|
-| **Chain of Responsibility** | Many independent checks with early stop | Modular steps, reorderable, testable | One big `if/else` validator | Slightly more classes to manage | Reservation validation pipeline |
-| Decorator | Add behavior around a single object | Good for wrapping features like logging/caching | Inline wrappers | Not natural for sequential rule failures | Cross‑cutting concerns only |
-| Strategy | Choose **one** algorithm among many | Good when exactly one algorithm runs | Switch/if selection | Doesn’t model multiple sequential checks | Conflict policy selection (elsewhere) |
-| One big function | Quick and simple | Fast to start | — | Hard to change/test; long & error‑prone | Not recommended for validation |
+# Campus Reservations — Milestone 2: Classes & Relationships
 
 ---
 
-### 2) Strategy
+## Layered Overview
 
-**idea:** Different faculties may prefer different scheduling policies (earliest slot, same‑building preference, minimize walking distance, keep cohorts in one wing). Strategy lets us swap **the algorithm** without rewriting the rest of the service.
+- **L1 — Application**: Commands and the command bus (use-cases).
+- **L2 — Services**: Core orchestration and scheduling.
+- **L3 — Validation (CoR)**: Pluggable, ordered validators.
+- **L4 — Strategy**: Slot/room selection algorithm(s).
+- **L5 — Eventing (Observer)**: Domain events and event bus implementations.
+- **L6 — Domain**: Entities and enums.
+- **L7 — Infrastructure**: Database abstraction and concrete connections.
 
-**Why:** We can A/B test and tune policies per semester or department. It avoids giant `switch` statements spread everywhere. Each policy becomes a small, focused class that’s easy to benchmark and test.
-
-**Where we use it:** **Conflict detection & slot selection** (which available room/time to propose when there are options).
-
-**Benefits over simpler options:**  
-- Replaces scattered `if/else` branches with clean, plug‑in policies.  
-- Easier to roll out **new policies** without touching existing ones.
-
-#### Comparison — Policy Selection
-
-| Approach | Problem Context | Why it fits | Simpler Alternative | Trade‑offs | Where we use it |
-|---|---|---|---|---|---|
-| **Strategy** | Multiple interchangeable algorithms | Swap at runtime/config; clean testing | `if/else` or `switch` | Slight boilerplate (interfaces/classes) | Slot selection & conflict resolution |
-| Template Method | Same skeleton, a few varying steps | If algorithms share a strict template | Strategy | Less flexible when algorithms differ a lot | Not ideal here |
-| Hard‑coded rules | One fixed policy | Minimal setup | — | Hard to change; code churn per semester | Not recommended |
+Singletons: **CommandBus**, **InMemoryEventBus**, **MqttEventBus**, **InMemoryDatabaseConnection**, **SqlDatabaseConnection**.  
+Enum-driven factories: **EventBusFactory(EventBusKind)**, **DatabaseFactory(DatabaseKind)**.
 
 ---
 
-### 3) Observer (Publish–Subscribe via MQTT)
+## L1 — Application (Commands)
 
-**idea:** When something happens (a reservation gets approved), the service **publishes an event**. Anyone interested (notifications, hallway signage, analytics) **subscribes** and reacts. The publisher doesn’t know or care who listens.
+### `Command` (interface)
+- **Responsibility:** Uniform contract for application actions.
+- **Key Operation:** `execute(ReservationService service)`.
+- **Relations:** Implemented by concrete commands; executed by `CommandBus`.
 
-**Why:** This **decouples** services. We don’t have to call five different services every time. If a consumer is down, MQTT can retain or replay messages (depending on QoS) and the system is more resilient.
+### `CreateReservationCommand` (implements `Command`)
+- **Responsibility:** Encapsulates data/intent to create a reservation request.
+- **Holds:** `ReservationRequest req`, `User actor`.
+- **Calls:** `ReservationService.submit(req, actor)`.
+- **Relations:** Uses `ReservationService` via `CommandBus`.
 
-**Where we use it:** Emitting domain events like `reservation.requested`, `reservation.approved`, `reservation.rejected`, `room.updated`. The Notifications service subscribes and sends emails/webhooks; future services (calendar sync, digital signage) can subscribe later **without changing the producer**.
+### `ApproveReservationCommand` (implements `Command`)
+- **Responsibility:** Approves a reservation request.
+- **Holds:** `String requestId`, `User actor`.
+- **Calls:** `ReservationService.approve(requestId, actor)`.
+- **Relations:** Uses `ReservationService` via `CommandBus`.
 
-**Benefits over simpler options:**  
-- Avoids tight coupling and slow chains of REST calls.  
-- Real‑time updates without heavy polling.
-
-#### Comparison — Service‑to‑Service Communication
-
-| Approach | Problem Context | Why it fits | Simpler Alternative | Trade‑offs | Where we use it |
-|---|---|---|---|---|---|
-| **Observer / Pub‑Sub (MQTT)** | Many consumers, loose coupling, async | Scales, decouples, real‑time | Direct REST calls | Operational overhead (broker), eventual consistency | Broadcasting reservation/room events |
-| Direct REST calls | Few consumers, synchronous needs | Simple, request/reply | — | Tight coupling, cascading failures | Admin UI queries |
-| Polling | Consumers fetch updates on schedule | Easy to add on legacy systems | Cron jobs | Latency, wasted load, stale data | Not preferred |
-| Global Event Bus (shared singleton) | Centralized events in‑process | Quick for monoliths | In‑process observers | Doesn’t cross service boundaries | Not for microservices |
-
----
-
-### 4) Command
-
-**idea:** We wrap each user action as a **Command object**: `CreateReservation`, `ApproveReservation`, `CancelReservation`, `RescheduleReservation`. A command carries the **intent** plus all data it needs and can be **queued, retried, logged, and audited** consistently.
-
-**Why:** Commands make it easy to add **idempotency** (same command key won’t double‑book), **retries** on temporary failures, and **audit trails** (who did what, when). They also keep the application layer clean and uniform.
-
-**Where we use it:** Reservation lifecycle operations and admin actions. Commands can be executed synchronously or sent to a work queue when needed.
-
-**Benefits over simpler options:**  
-- Standardizes how we run, log, retry, and secure actions.  
-- Plays nicely with messaging and compensating actions.
-
-#### Comparison — Handling Actions
-
-| Approach | Problem Context | Why it fits | Simpler Alternative | Trade‑offs | Where we use it |
-|---|---|---|---|---|---|
-| **Command** | Many actions need retry/audit/idempotency | Consistent execution & logging | Call methods directly | Slightly more structure (classes/handlers) | Reservation lifecycle operations |
-| Direct service calls | Straightforward single action | Quick to write | — | Harder to add retries/idempotency uniformly | Limited use |
-| Event Sourcing | Full history = source of truth | Powerful auditing | DB change log | Higher complexity, rebuilds | Possible later |
-| Saga only | Distributed transactions via steps | Orchestrates multi‑service ops | Ad‑hoc workflows | Needs events/commands anyway | Later milestones |
+### `CommandBus` *(Singleton)*
+- **Responsibility:** Dispatches `Command` objects synchronously.
+- **Holds:** `ReservationService service`.
+- **Operations:** `getInstance(ReservationService)`, `dispatch(Command)`.
+- **Relations:** Uses `ReservationService`; receives `Command`.
 
 ---
 
-### 5) Factory Method (supporting)
+## L2 — Services
 
-**idea:** Instead of sprinkling `new MqttClient(...)` or `new Pool(...)` everywhere, we centralize creation behind small factories. Tests can swap real clients with fakes/mocks easily. Deployments can change providers via configuration.
+### `ReservationService`
+- **Responsibility:** Orchestrates lifecycle: **validate → persist → schedule → publish events**.
+- **Holds:**  
+  - `DatabaseConnection db`  
+  - `EventBus eventBus`  
+  - `ValidationHandler validators` (head of CoR)  
+  - `SchedulingService scheduling`  
+  - `FacultyPolicy policy`
+- **Operations:** `submit(ReservationRequest, User) : ValidationResult`, `approve(String, User)`.
+- **Relations:**  
+  - Composes/uses `ValidationHandler` chain (`FacultyPolicyValidator → ScheduleConflictValidator`).  
+  - Uses `DatabaseConnection` for persistence.  
+  - Uses `SchedulingService` for availability & blocking.  
+  - Publishes `DomainEvent` via `EventBus`.  
+  - Reads `FacultyPolicy` (policy constraints).
 
-**Why:** Makes code **testable** and **portable** (local vs. cloud). It keeps infrastructure details out of business logic.
-
-**Where we use it:** Creating DB pools, MQTT clients, mail/webhook adapters based on environment (dev/test/prod).
-
-**Benefits over simpler options:**  
-- Encourages **explicit dependencies** and clean seams for testing.  
-- Avoids hidden singletons and reduces setup duplication.
-
-#### Comparison — Object Creation
-
-| Approach | Problem Context | Why it fits | Simpler Alternative | Trade‑offs | Where we use it |
-|---|---|---|---|---|---|
-| **Factory Method** | Need swappable/testing‑friendly clients | Centralized creation, easy mocking | `new` everywhere | Slightly more boilerplate | DB/MQTT/email/webhook clients |
-| Service Locator | Global registry gives instances | Quick wiring | Global singletons | Hidden dependencies, hard to test | Not preferred |
-| Abstract Factory | Families of related objects | Useful at scale | Multiple factories | Heavier abstraction | Maybe later if needed |
-| `new` scattered | Fast to start | Minimal code | — | Tight coupling, hard to test/swap | Avoid |
-
----
-
-## How they work together (one scenario)
-
-1. A professor submits a **reservation request**.  
-2. The request runs through the **Chain of Responsibility** validators (time, conflicts, capacity, equipment, policy, permission).  
-3. If conflicts occur but alternatives exist, the **Strategy** picks the best slot/room according to current policy.  
-4. Approving the request executes an **ApproveReservation Command** that logs intent, ensures idempotency, writes to the DB, and emits events.  
-5. The service **publishes** `reservation.approved` on MQTT (**Observer / Pub‑Sub**). The Notifications service and others react independently.
+### `SchedulingService`
+- **Responsibility:** Keeps occupancy, checks availability, blocks slots, proposes alternatives.
+- **Holds:**  
+  - `SlotSelectionStrategy strategy`  
+  - `Map<String, List<TimeSlot>> occupancy`  
+  - `List<Room> catalog`
+- **Operations:** `available(String, TimeSlot): boolean`, `block(String, TimeSlot)`, `suggest(ReservationRequest): Room`.
+- **Relations:**  
+  - Used by `ReservationService` and `ScheduleConflictValidator`.  
+  - Delegates alternative choice to `SlotSelectionStrategy`.
 
 ---
 
-## TL;DR (pattern → problem → payoff)
+## L3 — Validation (Chain of Responsibility)
 
-| Pattern | Solves | Payoff |
-|---|---|---|
-| **Chain of Responsibility** | Many ordered checks that may fail early | Modular rules, easy to reorder and test |
-| **Strategy** | Swap scheduling/conflict policies | Clean plug‑in policies, no branch explosions |
-| **Observer (MQTT)** | Decouple producers/consumers across services | Real‑time updates, scalable fan‑out |
-| **Command** | Uniform action execution with retry/audit/idempotency | Safer operations, consistent logging |
-| **Factory Method** | Testable creation of infra clients | Easier testing and provider changes |
+### `ValidationHandler` (abstract)
+- **Responsibility:** Base link in CoR; defines `then()` and `validate()`.
+- **Holds:** `ValidationHandler next`.
+- **Operations:**  
+  - `then(ValidationHandler) : ValidationHandler`  
+  - `validate(ReservationRequest, User) : ValidationResult`  
+  - `check(ReservationRequest, User) : ValidationResult` *(protected, to implement)*
+- **Relations:** Parent of concrete validators; chained in `ReservationService`.
+
+### `FacultyPolicyValidator` (extends `ValidationHandler`)
+- **Responsibility:** Enforces faculty policy (faculty match, allowed roles, max duration, blackout).
+- **Holds:** `FacultyPolicy policy`.
+- **check():** Validates actor faculty/role/time window vs. policy.
+- **Relations:** First link in validation chain.
+
+### `ScheduleConflictValidator` (extends `ValidationHandler`)
+- **Responsibility:** Ensures no schedule conflicts; proposes an alternative room if needed.
+- **Holds:** `SchedulingService scheduling`.
+- **check():** `available(room, slot)` else `suggest(req)`; returns chosen `Room` in `ValidationResult`.
+- **Relations:** Follows `FacultyPolicyValidator` in the chain.
+
+### `ValidationResult`
+- **Responsibility:** Immutable outcome of a validation step/chain.
+- **Holds:** `boolean ok`, `String msg`, `Room chosen` *(optional)*.
+- **Construction:** `ok()`, `ok(Room)`, `fail(String)`.
+- **Relations:** Returned by validators and consumed by `ReservationService`.
+
+---
+
+## L4 — Strategy
+
+### `SlotSelectionStrategy` (interface)
+- **Responsibility:** Select a room among available candidates.
+- **Operation:** `select(List<Room>, ReservationRequest) : Room`.
+- **Relations:** Implemented by concrete strategies, used by `SchedulingService`.
+
+### `LowestConflictStrategy` (implements `SlotSelectionStrategy`)
+- **Responsibility:** Simple policy selecting a suitable available room.
+- **Operation:** `select(...) : Room`.
+- **Relations:** Injected into `SchedulingService`.
+
+---
+
+## L5 — Eventing (Observer)
+
+### `DomainEventType` (enum)
+- **Values:** `RESERVATION_REQUESTED`, `RESERVATION_APPROVED`, `RESERVATION_REJECTED`.
+
+### `DomainEvent`
+- **Responsibility:** Represents a published domain event.
+- **Holds:** `DomainEventType type`, `String aggregateId`, `Object payload`.
+
+### `EventListener` (interface)
+- **Responsibility:** Event handler contract.
+- **Operation:** `on(DomainEvent event)`.
+
+### `EventBus` (interface)
+- **Responsibility:** Publish–subscribe abstraction.
+- **Operations:** `publish(DomainEvent)`, `subscribe(DomainEventType, EventListener)`.
+
+### `InMemoryEventBus` *(Singleton, implements `EventBus`)*
+- **Responsibility:** In-process pub–sub for events.
+- **Holds:** `Map<DomainEventType, List<EventListener>> routes`.
+- **Operations:** `getInstance()`, `publish(...)`, `subscribe(...)`.
+- **Relations:** Used by `ReservationService` in in-memory deployments.
+
+### `MqttClient`
+- **Responsibility:** Minimal client abstraction for MQTT publish/subscribe (stubbed API).
+- **Operations:** `publish(topic, payload)`, `subscribe(topic, handler)`.
+
+### `MqttEventBus` *(Singleton, implements `EventBus`)*
+- **Responsibility:** Event bus backed by `MqttClient`.
+- **Holds:** `MqttClient client`, local handlers per event type.
+- **Operations:** `getInstance(MqttClient)`, `publish(...)`, `subscribe(...)`.
+- **Relations:** Used by `ReservationService` in MQTT mode.
+
+### `EventBusKind` (enum)
+- **Values:** `IN_MEMORY`, `MQTT`.
+
+### `EventBusFactory`
+- **Responsibility:** Enum-driven creation of `EventBus`.
+- **Operation:** `create(EventBusKind, MqttClient) : EventBus`.
+- **Relations:** Produces singletons (`InMemoryEventBus` or `MqttEventBus`).
+
+---
+
+## L6 — Domain
+
+### `ReservationStatus` (enum)
+- **Values:** `PENDING`, `APPROVED`, `REJECTED`.
+
+### `Role` (enum)
+- **Values:** `PROFESSOR`, `ADMIN`, `STAFF`.
+
+### `TimeSlot`
+- **Responsibility:** Immutable interval with overlap/minutes helpers.
+- **Holds:** `LocalDateTime start`, `LocalDateTime end`.
+- **Key Ops:** `minutes()`, `overlaps(TimeSlot) : boolean`.
+
+### `Room`
+- **Responsibility:** Room capacity/equipment metadata.
+- **Holds:** `String roomId`, `int capacity`, `Set<String> equipment`.
+- **Key Op:** `hasAll(List<String>) : boolean`.
+
+### `User`
+- **Responsibility:** Requesting/approving actor.
+- **Holds:** `String userId`, `Role role`, `String facultyKey`.
+
+### `FacultyPolicy`
+- **Responsibility:** Faculty constraints for validations.
+- **Holds:** `String facultyKey`, `int maxMinutes`, `boolean enforceBlackout`, `boolean hardPref`, `List<Role> allowedRoles`.
+
+### `ReservationRequest`
+- **Responsibility:** Aggregate for a reservation.
+- **Holds:**  
+  - `String requestId` *(generated)*  
+  - `String requesterId`  
+  - `String roomId` *(mutable if an alternative is chosen)*  
+  - `TimeSlot slot`  
+  - `int attendees`  
+  - `List<String> equipment`  
+  - `ReservationStatus status`
+- **Relations:** Validated by CoR; persisted by `DatabaseConnection`; scheduled by `SchedulingService`; referenced in `DomainEvent`.
+
+---
+
+## L7 — Infrastructure
+
+### `DatabaseConnection` (interface)
+- **Responsibility:** Persistence abstraction for `ReservationRequest`.
+- **Operations:** `save(ReservationRequest)`, `markApproved(String)`, `exists(String): boolean`, `findById(String): ReservationRequest`.
+
+### `InMemoryDatabaseConnection` *(Singleton, implements `DatabaseConnection`)*
+- **Responsibility:** In-process map-backed storage.
+- **Holds:** `Map<String, ReservationRequest> store`.
+- **Relations:** Used in memory-mode; accessed by `ReservationService`.
+
+### `SqlDatabaseConnection` *(Singleton, implements `DatabaseConnection`)*
+- **Responsibility:** Placeholder for external SQL persistence (pool provided).
+- **Holds:** `Object pool`.
+
+### `DatabaseKind` (enum)
+- **Values:** `IN_MEMORY`, `SQL`.
+
+### `DatabaseFactory`
+- **Responsibility:** Enum-driven creation of `DatabaseConnection`.
+- **Operation:** `create(DatabaseKind, Object pool) : DatabaseConnection`.
+- **Relations:** Produces singletons (`InMemoryDatabaseConnection` or `SqlDatabaseConnection`).
+
+---
+
+## Relationships Summary (selected)
+
+- **Commands → Services**:  
+  `CreateReservationCommand.execute()` → `ReservationService.submit(...)`  
+  `ApproveReservationCommand.execute()` → `ReservationService.approve(...)`  
+  `CommandBus.dispatch(...)` → `Command.execute(service)`
+
+- **ReservationService → Validation**:  
+  Builds chain `FacultyPolicyValidator → ScheduleConflictValidator`; calls `validate(...)`.
+
+- **ReservationService → Infra/Eventing/Scheduling**:  
+  `db.save(...)`, `db.markApproved(...)`, `db.exists(...)`  
+  `scheduling.available(...)`, `scheduling.block(...)`  
+  `eventBus.publish(DomainEvent)`
+
+- **SchedulingService → Strategy**:  
+  `suggest(req)` delegates to `SlotSelectionStrategy.select(...)`.
+
+- **Factories (enum-driven) → Singletons**:  
+  `EventBusFactory.create(EventBusKind, MqttClient)` → `InMemoryEventBus.getInstance()` or `MqttEventBus.getInstance(client)`  
+  `DatabaseFactory.create(DatabaseKind, pool)` → `InMemoryDatabaseConnection.getInstance()` or `SqlDatabaseConnection.getInstance(pool)`
+
+- **Domain used throughout**:  
+  `ReservationRequest`, `TimeSlot`, `Room`, `User`, `FacultyPolicy`, `ReservationStatus`, `Role` are referenced by services, validators, strategy, eventing, and infra.
+
+---
