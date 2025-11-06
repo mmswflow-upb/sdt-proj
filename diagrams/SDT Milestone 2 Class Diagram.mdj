@@ -7258,7 +7258,7 @@
 											"top": 1579,
 											"width": 270.89599609375,
 											"height": 13,
-											"text": "+Attribute1",
+											"text": "-store: Map",
 											"horizontalAlignment": 0
 										}
 									],
@@ -7542,32 +7542,12 @@
 									"model": {
 										"$ref": "AAAAAAGaUJHxecufppY="
 									},
-									"subViews": [
-										{
-											"_type": "UMLAttributeView",
-											"_id": "AAAAAAGaUJI0Q8vMJyg=",
-											"_parent": {
-												"$ref": "AAAAAAGaUJHxecunGg4="
-											},
-											"model": {
-												"$ref": "AAAAAAGaUJI0M8vJdzk="
-											},
-											"font": "Arial;13;0",
-											"parentStyle": true,
-											"left": 2765,
-											"top": 1563,
-											"width": 301.26953125,
-											"height": 13,
-											"text": "-pool: Object",
-											"horizontalAlignment": 0
-										}
-									],
 									"font": "Arial;13;0",
 									"parentStyle": true,
 									"left": 2760,
 									"top": 1558,
 									"width": 311.26953125,
-									"height": 23
+									"height": 10
 								},
 								{
 									"_type": "UMLOperationCompartmentView",
@@ -7591,7 +7571,7 @@
 											"font": "Arial;13;0",
 											"parentStyle": true,
 											"left": 2765,
-											"top": 1586,
+											"top": 1573,
 											"width": 301.26953125,
 											"height": 13,
 											"underline": true,
@@ -7610,7 +7590,7 @@
 											"font": "Arial;13;0",
 											"parentStyle": true,
 											"left": 2765,
-											"top": 1601,
+											"top": 1588,
 											"width": 301.26953125,
 											"height": 13,
 											"text": "+save(req: ReservationRequest)",
@@ -7628,7 +7608,7 @@
 											"font": "Arial;13;0",
 											"parentStyle": true,
 											"left": 2765,
-											"top": 1616,
+											"top": 1603,
 											"width": 301.26953125,
 											"height": 13,
 											"text": "+markApproved(id: String)",
@@ -7646,7 +7626,7 @@
 											"font": "Arial;13;0",
 											"parentStyle": true,
 											"left": 2765,
-											"top": 1631,
+											"top": 1618,
 											"width": 301.26953125,
 											"height": 13,
 											"text": "+exists(id: String): boolean",
@@ -7664,7 +7644,7 @@
 											"font": "Arial;13;0",
 											"parentStyle": true,
 											"left": 2765,
-											"top": 1646,
+											"top": 1633,
 											"width": 301.26953125,
 											"height": 13,
 											"text": "+findById(id: String): ReservationRequest",
@@ -7674,7 +7654,7 @@
 									"font": "Arial;13;0",
 									"parentStyle": true,
 									"left": 2760,
-									"top": 1581,
+									"top": 1568,
 									"width": 311.26953125,
 									"height": 83
 								},
@@ -8122,7 +8102,7 @@
 											"width": 371.3603515625,
 											"height": 13,
 											"underline": true,
-											"text": "~create(kind: DatabaseKind, pool: Object): DatabaseConnection",
+											"text": "~create(kind: DatabaseKind): DatabaseConnection",
 											"horizontalAlignment": 0
 										}
 									],
@@ -19987,8 +19967,9 @@
 							"_parent": {
 								"$ref": "AAAAAAGaUI6p8cs9CBY="
 							},
-							"name": "Attribute1",
-							"type": ""
+							"name": "store",
+							"visibility": "private",
+							"type": "Map"
 						}
 					],
 					"operations": [
@@ -20138,18 +20119,6 @@
 						}
 					],
 					"stereotype": "Singleton",
-					"attributes": [
-						{
-							"_type": "UMLAttribute",
-							"_id": "AAAAAAGaUJI0M8vJdzk=",
-							"_parent": {
-								"$ref": "AAAAAAGaUJHxecufppY="
-							},
-							"name": "pool",
-							"visibility": "private",
-							"type": "Object"
-						}
-					],
 					"operations": [
 						{
 							"_type": "UMLOperation",
@@ -20395,15 +20364,6 @@
 									"type": {
 										"$ref": "AAAAAAGaUJXIDswJYrA="
 									}
-								},
-								{
-									"_type": "UMLParameter",
-									"_id": "AAAAAAGaUJg1E8yDXJk=",
-									"_parent": {
-										"$ref": "AAAAAAGaUJgtHsx7qnw="
-									},
-									"name": "pool",
-									"type": "Object"
 								},
 								{
 									"_type": "UMLParameter",
