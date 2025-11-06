@@ -3,7 +3,7 @@ package campus_poc.eventing;
 import java.util.*;
 
 public class MqttEventBus implements EventBus {
-    private static volatile MqttEventBus INSTANCE;
+    private static MqttEventBus INSTANCE;
     public static  MqttEventBus getInstance(MqttClient client) {
         if (INSTANCE == null) {
                     INSTANCE = new MqttEventBus(client);

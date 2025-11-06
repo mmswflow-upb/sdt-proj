@@ -3,14 +3,13 @@ package campus_poc.infra;
 import campus_poc.domain.ReservationRequest;
 
 public class SqlDatabaseConnection implements DatabaseConnection {
-    private static volatile SqlDatabaseConnection INSTANCE;
-    public static SqlDatabaseConnection getInstance(Object pool) {
-        if (INSTANCE == null) INSTANCE = new SqlDatabaseConnection(pool);
+    private static SqlDatabaseConnection INSTANCE;
+    public static SqlDatabaseConnection getInstance() {
+        if (INSTANCE == null) INSTANCE = new SqlDatabaseConnection();
         return INSTANCE;
     }
 
-    private final Object pool;
-    private SqlDatabaseConnection(Object pool) { this.pool = pool; }
+    private SqlDatabaseConnection() {  }
 
     @Override public void save(ReservationRequest req) { System.out.println("[SQL] save " + req); }
     @Override public void markApproved(String id) { System.out.println("[SQL] mark approved " + id); }

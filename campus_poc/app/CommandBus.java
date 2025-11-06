@@ -1,7 +1,7 @@
 package campus_poc.app;
 import campus_poc.services.ReservationService;
 public class CommandBus {
-    private static volatile CommandBus INSTANCE;
+    private static  CommandBus INSTANCE;
     private final ReservationService service;
     private CommandBus(ReservationService service) { this.service = service; }
     public static CommandBus getInstance(ReservationService service) {
