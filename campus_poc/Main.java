@@ -53,6 +53,11 @@ public class Main {
             System.out.println("Second request failed: " + ex.getMessage());
         }
 
-        commandBus.dispatch(new ApproveReservationCommand(req.getRequestId(), admin));
+        try {
+            commandBus.dispatch(new ApproveReservationCommand(req.getRequestId(), admin));
+            
+        } catch (Exception e) {
+            System.out.println("Approval of first request failed: " + e.getMessage());
+        }
     }
 }
