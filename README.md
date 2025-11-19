@@ -133,7 +133,7 @@ Shared entities, validators, and database helpers are extracted into a common li
 
 ---
 
-## 4. Comparison and Final Decision
+## 4. Final Comparison and Choice
 
 ### Summary
 
@@ -154,6 +154,6 @@ Shared entities, validators, and database helpers are extracted into a common li
   - Minimal infrastructure management and naturally event-driven.
   - Better suited for auxiliary tasks than for the core multi-step reservation flow in our case.
 
-### Final decision
+### Our choice
 
 For Campus Reservations, our preferred long-term architecture is the microservices approach. The current codebase (proof-of-concept) already has clear boundaries that map well to a Command + Reservation Service (with idempotent command handling and its own database), a Scheduling Service (owning room and schedule data), and a Notification Service (subscribing to events from a message queue). Turning these into separate services gives us independent scaling, clearer ownership, and room to add new services such as extended notifications or analytics by subscribing to the same domain events.
