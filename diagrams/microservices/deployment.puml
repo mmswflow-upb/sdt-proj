@@ -1,27 +1,50 @@
-@startuml Monolith_Deployment
+@startuml Microservices_Deployment_Final
 
 skinparam nodeStyle rectangle
 skinparam databaseStyle cylinder
 
-node "Monolith" as MonolithApp {
-
-  artifact "Web API / Controllers" as WebApi
-  artifact "CommandBus" as CommandBus
-  artifact "ReservationService" as ReservationService
-  artifact "SchedulingService" as SchedulingService
-  artifact "Validation Chain\n(FacultyPolicyValidator,\nScheduleConflictValidator)" as Validation
-  artifact "EventBus\n(InMemoryEventBus / MqttEventBus)" as EventBus
+' Command + Reservation Service
+node "Command + Reservation Service" as CmdResService {
+  artifact "HTTP API" as HttpApi
+  artifact "CommandBus" as MS_CommandBus
+  artifact "ReservationService" as MS_ReservationService
 }
 
-database "Reservations DB" as ReservationsDB
-cloud "MQTT Broker" as MqttBroker
+' Scheduling Service
+node "Scheduling Service" as SchedulingServiceNode {
+  artifact "SchedulingService" as MS_SchedulingService
+}
 
-WebApi          --> CommandBus       : dispatch commands
-CommandBus      --> ReservationService : call use-cases
-ReservationService --> Validation    : validate requests
-ReservationService --> SchedulingService : check/suggest slots
-ReservationService --> ReservationsDB : read/write reservations
-ReservationService --> EventBus      : publish domain events
-EventBus        --> MqttBroker       : forward events (MQTT mode)
+' Notification Service
+node "Notification Service" as NotificationServiceNode {
+  artifact "NotificationProcessor" as MS_NotificationProcessor
+}
+
+' Databases
+database "Commands + Reservations DB" as CommandsResDB
+database "Scheduling DB\n(Rooms, Occupancy)" as SchedulingDB
+database "Notifications DB" as NotificationsDB
+
+' Message Queue / Broker
+cloud "Message Queue / Broker\n(e.g. MQTT, RabbitMQ)" as Broker
+
+' HTTP entrypoint
+HttpApi --> MS_CommandBus          : handle HTTP requests
+MS_CommandBus --> MS_ReservationService : dispatch commands
+
+' Command + Reservation Service internals
+MS_ReservationService --> CommandsResDB : store commands + reservations
+
+' Call to Scheduling Service
+MS_ReservationService --> MS_SchedulingService : REST/gRPC\navailability/suggest
+
+MS_SchedulingService --> SchedulingDB : rooms + occupancy
+
+' Event publishing
+MS_ReservationService --> Broker : publish domain events\n(RESERVATION_*)
+
+' Notification subscription
+MS_NotificationProcessor --> Broker : subscribe domain events\n(RESERVATION_*)
+MS_NotificationProcessor --> NotificationsDB : log sent notifications
 
 @enduml

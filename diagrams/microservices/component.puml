@@ -1,0 +1,70 @@
+@startuml Microservices_Example
+
+' ================
+' Command + Reservation Service
+' ================
+component "API Controller\n(POST /reservations,\n...)" as MS_ApiController
+component "CommandBus" as MS_CommandBus
+component "ReservationService" as MS_ReservationService
+component "CommandRepository" as MS_CommandRepository
+component "ReservationRepository" as MS_ReservationRepository
+
+' Interfaces used/implemented inside this service
+interface "ICommand" as MS_ICommand
+interface "ICommandRepository" as MS_ICommandRepository
+interface "IReservationRepository" as MS_IReservationRepository
+interface "ISchedulingAPI" as MS_ISchedulingAPI
+
+' ================
+' Scheduling Service
+' ================
+component "SchedulingController\n(GET /availability,\nPOST /suggest)" as MS_SchedulingController
+component "SchedulingService" as MS_SchedulingService
+component "RoomRepository" as MS_RoomRepository
+component "OccupancyRepository" as MS_OccupancyRepository
+
+' ================
+' Notification Service
+' ================
+component "NotificationListener" as MS_NotificationListener
+component "NotificationSender" as MS_NotificationSender
+component "NotificationRepository" as MS_NotificationRepository
+
+' ================
+' Messaging / Queue
+' ================
+component "MessageQueue\n(ReservationEvents)" as MS_MessageQueue
+
+' ================
+' Relationships – create reservation flow
+' ================
+
+' Commands and API
+MS_ICommand <|-- MS_ReservationService        : handles commands
+MS_ApiController --> MS_CommandBus            : dispatch(command)
+MS_CommandBus --> MS_ICommand                 : execute()
+MS_CommandBus --> MS_ReservationService       : call use-case
+
+' Command + Reservation repositories
+MS_ReservationService ..> MS_ICommandRepository     : store command + status
+MS_CommandRepository ..|> MS_ICommandRepository
+
+MS_ReservationService ..> MS_IReservationRepository : store reservation
+MS_ReservationRepository ..|> MS_IReservationRepository
+
+' Call Scheduling Service
+MS_ReservationService ..> MS_ISchedulingAPI         : call /availability,/suggest
+MS_ISchedulingAPI <|-- MS_SchedulingController
+MS_SchedulingController --> MS_SchedulingService    : delegate
+MS_SchedulingService --> MS_RoomRepository          : rooms
+MS_SchedulingService --> MS_OccupancyRepository     : occupancy
+
+' Publish events to queue
+MS_ReservationService --> MS_MessageQueue           : publish RESERVATION_*
+
+' Notification Service consumes events
+MS_NotificationListener --> MS_MessageQueue         : subscribe RESERVATION_*
+MS_NotificationListener --> MS_NotificationSender   : send()
+MS_NotificationSender --> MS_NotificationRepository : log notification
+
+@enduml

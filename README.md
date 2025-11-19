@@ -2,24 +2,32 @@
 
 ## 1. Monolithic Architecture
 
-In the monolithic version we run a single application and a single database. We still keep a clear internal structure:
+In the monolithic version we run a single deployable application and a single database. The main layers and components are:
 
-- Application layer: commands and `CommandBus` (use-cases).
-- Services: `ReservationService`, `SchedulingService`.
-- Validation: chain of responsibility (`FacultyPolicyValidator`, `ScheduleConflictValidator`).
-- Strategy: `SlotSelectionStrategy` / `LowestConflictStrategy`.
-- Eventing: `EventBus` with `InMemoryEventBus` or `MqttEventBus`.
-- Domain: `ReservationRequest`, `User`, `Room`, `TimeSlot`, enums.
-- Infrastructure: `DatabaseConnection` with in-memory or SQL implementations.
+- Application layer: commands and a `CommandBus` that represent use-cases and are exposed via HTTP endpoints.
+- Services: `ReservationService` (core reservation lifecycle) and `SchedulingService` (availability checks and room suggestions).
+- Validation: a chain of responsibility (`FacultyPolicyValidator`, `ScheduleConflictValidator`) that runs before a reservation is persisted.
+- Strategy: `SlotSelectionStrategy` / `LowestConflictStrategy`, used by `SchedulingService` to pick a room among candidates.
+- Eventing: an `EventBus` abstraction with concrete implementations `InMemoryEventBus` or `MqttEventBus` for domain events.
+- Domain: `ReservationRequest`, `User`, `Room`, `TimeSlot` and supporting enums (`ReservationStatus`, `Role`), used across services and validators.
+- Infrastructure: a `DatabaseConnection` abstraction with in-memory or SQL implementations created via a factory.
 
-### Example Monolith Implementation
+At runtime, everything lives in a single process. The `CampusReservationsApplication` entry point is responsible for wiring things together:
 
-- Main entry point: `CampusReservationsApplication` (single deployable).
-- On startup we:
-  - Create `DatabaseConnection` and `EventBus` using the factories.
-  - Build `SchedulingService`, the validation chain, and `ReservationService`.
-  - Create a `CommandBus` that holds the `ReservationService` and register HTTP endpoints.
-- A typical HTTP request builds a `CreateReservationCommand` or `ApproveReservationCommand`, calls `CommandBus.dispatch(command)` in the same process, and returns the result from `ReservationService`.
+- It creates the `DatabaseConnection` (in-memory or SQL) and the `EventBus` (in-memory or MQTT) using the existing factories.
+- It builds the `SchedulingService`, configures a `SlotSelectionStrategy`, and assembles the validation chain (`FacultyPolicyValidator -> ScheduleConflictValidator`).
+- It constructs the `ReservationService` by injecting the database connection, event bus, validation chain, and `SchedulingService`.
+- It creates a `CommandBus` that holds a reference to `ReservationService` and registers HTTP endpoints that translate incoming requests into commands.
+
+A typical HTTP request (for example `POST /reservations` or an approval endpoint) is handled by a controller that builds a `CreateReservationCommand` or `ApproveReservationCommand` and passes it to `CommandBus.dispatch(command)`. The `CommandBus` calls into `ReservationService` in the same process, which runs validation, talks to `SchedulingService` if needed, persists the `ReservationRequest` through `DatabaseConnection`, publishes domain events via the `EventBus`, and returns the result back to the controller. The controller then serializes that result into the HTTP response. All of this happens inside a single application and database, but with boundaries that match the later microservices and serverless variants.
+
+### Monolith Deployment Diagram
+
+![monolith_deploy_diag](diagrams/monolith/deployment.png)
+
+### Monolith Component Diagram
+
+![monolith_comp_diag](diagrams/monolith/component.png)
 
 **Pros:**
 
@@ -37,52 +45,33 @@ In the monolithic version we run a single application and a single database. We 
 
 ## 2. Microservices Architecture
 
-Here we split the system into three services. Each service runs in its own process and has its own database or schema.
+We split the system into three services, each running in its own process with its own database or schema:
 
-- Command + Reservation Service
-  - Exposes HTTP/gRPC endpoints to clients.
-  - Hosts the `CommandBus` and the command classes.
-  - Contains the `ReservationService`, validation chain, and domain logic for reservations.
-  - Owns a **Commands + Reservations DB**, where it:
-    - Stores incoming commands with an idempotency key and status (`PENDING`, `APPROVED`, `REJECTED`/`REVOKED`).
-    - Stores the corresponding reservation records.
-  - Publishes domain events such as `RESERVATION_REQUESTED` and `RESERVATION_APPROVED` to a message queue (for example MQTT topic or another broker).
+- **Command + Reservation Service**
+  - Exposes HTTP/gRPC endpoints (e.g. `POST /reservations`).
+  - Hosts the `CommandBus`, commands, `ReservationService`, validation chain, and reservation domain logic.
+  - Owns a **Commands + Reservations DB**, storing incoming commands with an idempotency key and status (`PENDING`, `APPROVED`, `REJECTED`/`REVOKED`) plus the corresponding reservation records.
+  - Publishes domain events such as `RESERVATION_REQUESTED` and `RESERVATION_APPROVED` to a message queue (MQTT topic or similar).
 
-- Scheduling Service
+- **Scheduling Service**
   - Owns room, occupancy, and timeslot logic.
-  - Exposes APIs like `available(roomId, slot)` and `suggest(request)`.
-  - Has its own **Scheduling DB** with:
-    - Room definitions and equipment.
-    - Occupancy information (blocked time slots).
+  - Exposes APIs like `GET /availability` and `POST /suggest`.
+  - Uses its own **Scheduling DB** for room definitions, equipment, and blocked time slots.
 
-- Notification Service
-  - Subscribes to domain events from the message queue (for example `RESERVATION_REQUESTED`, `RESERVATION_APPROVED`, `RESERVATION_REJECTED`).
-  - Sends emails or other notifications based on these events.
-  - Can store sent notifications, templates, or user preferences in its own **Notifications DB**.
+- **Notification Service**
+  - Subscribes to domain events on the message queue (for example `RESERVATION_REQUESTED`, `RESERVATION_APPROVED`, `RESERVATION_REJECTED`).
+  - Sends emails or other notifications based on those events.
+  - Uses a **Notifications DB** for sent notifications, templates, or user preferences.
 
-### Example Microservices Implementation
+In a typical create-reservation flow, the Command + Reservation Service receives POST /reservations, writes a PENDING command with an idempotency key, checks for duplicates, runs the validation chain, and then calls the Scheduling Service APIs directly to detect conflicts or get suggestions using the Scheduling DB. Based on the result, it updates the reservation and command status in its own database and finally publishes a reservation event to the message queue. The Notification Service reacts to events (for example RESERVATION_APPROVED) by looking up templates and recipient data, sending notifications, and logging them. Other consumers such as an Analytics Service can be added later by subscribing to the same events on the queue without changing these three core services.
 
-- Each service is packaged and deployed separately (for example as containers).
+### Microservices Deployment Diagram
 
-- For a create reservation flow:
-  - The Command + Reservation Service receives `POST /reservations`.
-  - It writes a new command entry in the Commands table with an idempotency key and status `PENDING`.
-  - It checks if a command with the same key was already processed and, if yes, returns the stored result (idempotent behaviour).
-  - It runs the validation chain and calls the Scheduling Service API to check conflicts or get a suggestion.
-  - It writes/updates the reservation record in the Reservations table and sets the command status to `APPROVED` or `REJECTED`.
-  - It publishes a `RESERVATION_REQUESTED` or `RESERVATION_APPROVED` event to the message queue.
+![microservices_deploy_diag](diagrams/microservices/deployment.png)
 
-- The Scheduling Service:
-  - Exposes endpoints such as `GET /availability` and `POST /suggest`.
-  - Reads/writes from its own Scheduling DB (rooms + occupancy).
-  - Is called synchronously by the Command + Reservation Service during validation/scheduling.
+### Microservices Component Diagram
 
-- The Notification Service:
-  - Subscribes to the relevant topics/queues on the message broker.
-  - When it receives a `RESERVATION_APPROVED` event, it looks up notification settings/templates, sends the email, and logs the notification to the Notifications DB.
-  - New consumers (for example an Analytics Service) can be added later by also subscribing to the same events without modifying the Command + Reservation or Scheduling services.
-
-- Each core service (Command + Reservation, Scheduling, Notification) has its own configuration, scaling settings, and release pipeline.
+![microservices_comp_diag](diagrams/microservices/component.png)
 
 **Pros:**
 
@@ -97,7 +86,7 @@ Here we split the system into three services. Each service runs in its own proce
 
 **Cons:**
 
-- Higher operational complexity (service discovery, monitoring, distributed logging, CI/CD per service, message broker).
+- Higher operational complexity (monitoring, CI/CD per service, message broker).
 - Requires well-defined API contracts between Command + Reservation and Scheduling, and clear event formats on the queue.
 - More moving parts to coordinate when changing cross-service flows.
 
@@ -121,6 +110,14 @@ In the serverless variant we implement the main flows as cloud functions. The cl
   - React to events and send emails or record metrics.
 
 Shared entities, validators, and database helpers are extracted into a common library or runtime layer that all functions reuse. Functions are triggered by HTTP events, message-queue events, or scheduled timers, and they react to domain events instead of calling each other directly.
+
+### Event-Driven Serverless Deployment Diagram
+
+![event_driven_serverless_deploy_diag](diagrams/serverless/deployment.png)
+
+### Event-Driven Serverless Component Diagram
+
+![event_driven_serverless_comp_diag](diagrams/serverless/component.png)
 
 **Pros:**
 
@@ -151,7 +148,7 @@ Shared entities, validators, and database helpers are extracted into a common li
     - Notification Service (listening on a message queue).
   - Fits our logical boundaries and supports independent scaling and deployment of each core concern.
   - Works well with our existing event concepts and allows new services (extra notifications, analytics, reporting) to be added by subscribing to the same events on the message queue.
-  - Requires more infrastructure and operational tooling, but there is a clear evolution path from the current modular design.
+  - Requires more infrastructure and operational tooling, but there is a clear evolution path from the current design.
 
 - Event-Driven Serverless
   - Minimal infrastructure management and naturally event-driven.
@@ -159,4 +156,4 @@ Shared entities, validators, and database helpers are extracted into a common li
 
 ### Final decision
 
-For Campus Reservations, our preferred long-term architecture is the microservices approach. The current codebase already has clear boundaries that map well to a Command + Reservation Service (with idempotent command handling and its own database), a Scheduling Service (owning room and schedule data), and a Notification Service (subscribing to events from a message queue). Turning these into separate services gives us independent scaling, clearer ownership, and room to add new services such as extended notifications or analytics by subscribing to the same domain events.
+For Campus Reservations, our preferred long-term architecture is the microservices approach. The current codebase (proof-of-concept) already has clear boundaries that map well to a Command + Reservation Service (with idempotent command handling and its own database), a Scheduling Service (owning room and schedule data), and a Notification Service (subscribing to events from a message queue). Turning these into separate services gives us independent scaling, clearer ownership, and room to add new services such as extended notifications or analytics by subscribing to the same domain events.

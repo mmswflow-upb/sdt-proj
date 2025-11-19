@@ -16,12 +16,12 @@ node "Monolith" as MonolithApp {
 database "Reservations DB" as ReservationsDB
 cloud "MQTT Broker" as MqttBroker
 
-WebApi          --> CommandBus       : dispatch commands
-CommandBus      --> ReservationService : call use-cases
-ReservationService --> Validation    : validate requests
+WebApi          --> CommandBus          : dispatch commands
+CommandBus      --> ReservationService  : call use-cases
+ReservationService --> Validation       : run validators
 ReservationService --> SchedulingService : check/suggest slots
-ReservationService --> ReservationsDB : read/write reservations
-ReservationService --> EventBus      : publish domain events
-EventBus        --> MqttBroker       : forward events (MQTT mode)
+ReservationService --> ReservationsDB   : read/write reservations
+ReservationService --> EventBus         : publish domain events
+EventBus        --> MqttBroker          : forward events (MQTT mode)
 
 @enduml
