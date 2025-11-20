@@ -1,5 +1,11 @@
 # Campus Reservations – Architecture Evaluation
 
+## Team
+- Sakka Mohamad-Mario
+- Zafar Azzam
+- Al-Khalidy Essam
+
+---
 ## 1. Monolithic Architecture
 
 In the monolithic version we run a single deployable application and a single database. The main layers and components are:
