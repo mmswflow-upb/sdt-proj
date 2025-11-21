@@ -144,7 +144,7 @@ Shared entities, validators, and database helpers are extracted into a common li
 ### Summary
 
 - Monolithic
-  - Simple, one deployment, ideal for early development and for teaching.
+  - Simple, one deployment, ideal for early development.
   - Limited scaling per component and less flexibility as the system grows.
 
 - Microservices
