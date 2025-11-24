@@ -1,0 +1,57 @@
+@startuml Serverless_Example
+
+left to right direction
+
+' --- Functions (left to right) ---
+component "CreateReservationFunction" as SV_CreateFn
+component "ApproveReservationFunction" as SV_ApproveFn
+component "NotificationFunction" as SV_NotificationFn
+component "AnalyticsFunction" as SV_AnalyticsFn
+component "SchedulingFunction" as SV_SchedulingFn
+
+' --- Shared library (under the functions logically) ---
+component "Validators\n(FacultyPolicyValidator,\nScheduleConflictValidator)" as SV_Validators
+component "DomainModel\n(ReservationRequest, User,\nRoom, TimeSlot)" as SV_DomainModel
+component "DBHelper" as SV_DBHelper
+component "EventPublisher" as SV_EventPublisher
+
+' --- Cloud resources (to the right / bottom) ---
+component "Cloud DB\n(Reservations + Schedules)" as SV_CloudDB
+component "ReservationEventsTopic" as SV_ReservationEventsTopic
+component "EmailGateway" as SV_EmailGateway
+
+' =========================
+' CreateReservation flow
+' =========================
+SV_CreateFn --> SV_Validators                 : validate()
+SV_CreateFn --> SV_DomainModel                : build request
+SV_CreateFn --> SV_DBHelper                   : write reservation
+SV_CreateFn --> SV_SchedulingFn               : check/suggest slot
+SV_CreateFn --> SV_EventPublisher             : publish\nRESERVATION_REQUESTED
+
+SV_DBHelper --> SV_CloudDB                    : insert reservation
+SV_SchedulingFn --> SV_CloudDB                : read/write schedules
+SV_EventPublisher --> SV_ReservationEventsTopic : publish event
+
+' =========================
+' ApproveReservation flow
+' =========================
+SV_ApproveFn --> SV_DomainModel               : load/update entity
+SV_ApproveFn --> SV_DBHelper                  : update reservation
+SV_ApproveFn --> SV_EventPublisher            : publish\nRESERVATION_APPROVED
+
+SV_DBHelper --> SV_CloudDB                    : update reservation
+SV_EventPublisher --> SV_ReservationEventsTopic : publish event
+
+' =========================
+' Notification & Analytics
+' =========================
+SV_NotificationFn --> SV_ReservationEventsTopic : consume events
+SV_NotificationFn --> SV_DomainModel            : interpret payload
+SV_NotificationFn --> SV_EmailGateway           : send email
+
+SV_AnalyticsFn --> SV_ReservationEventsTopic    : consume events
+SV_AnalyticsFn --> SV_DomainModel               : interpret payload
+SV_AnalyticsFn --> SV_CloudDB                   : read/write metrics
+
+@enduml
