@@ -1,0 +1,50 @@
+@startuml Microservices_Deployment_Final
+
+skinparam nodeStyle rectangle
+skinparam databaseStyle cylinder
+
+' Command + Reservation Service
+node "Command + Reservation Service" as CmdResService {
+  artifact "HTTP API" as HttpApi
+  artifact "CommandBus" as MS_CommandBus
+  artifact "ReservationService" as MS_ReservationService
+}
+
+' Scheduling Service
+node "Scheduling Service" as SchedulingServiceNode {
+  artifact "SchedulingService" as MS_SchedulingService
+}
+
+' Notification Service
+node "Notification Service" as NotificationServiceNode {
+  artifact "NotificationProcessor" as MS_NotificationProcessor
+}
+
+' Databases
+database "Commands + Reservations DB" as CommandsResDB
+database "Scheduling DB\n(Rooms, Occupancy)" as SchedulingDB
+database "Notifications DB" as NotificationsDB
+
+' Message Queue / Broker
+cloud "Message Queue / Broker\n(e.g. MQTT, RabbitMQ)" as Broker
+
+' HTTP entrypoint
+HttpApi --> MS_CommandBus          : handle HTTP requests
+MS_CommandBus --> MS_ReservationService : dispatch commands
+
+' Command + Reservation Service internals
+MS_ReservationService --> CommandsResDB : store commands + reservations
+
+' Call to Scheduling Service
+MS_ReservationService --> MS_SchedulingService : REST/gRPC\navailability/suggest
+
+MS_SchedulingService --> SchedulingDB : rooms + occupancy
+
+' Event publishing
+MS_ReservationService --> Broker : publish domain events\n(RESERVATION_*)
+
+' Notification subscription
+MS_NotificationProcessor --> Broker : subscribe domain events\n(RESERVATION_*)
+MS_NotificationProcessor --> NotificationsDB : log sent notifications
+
+@enduml

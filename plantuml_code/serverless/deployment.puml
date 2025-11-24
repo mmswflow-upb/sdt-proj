@@ -1,0 +1,44 @@
+@startuml Serverless_Deployment
+
+skinparam nodeStyle rectangle
+skinparam databaseStyle cylinder
+
+cloud "Cloud Provider" as Cloud {
+
+  node "API Gateway" as ApiGateway
+
+  node "Functions" {
+    artifact "CreateReservation\nFunction" as F_Create
+    artifact "ApproveReservation\nFunction" as F_Approve
+    artifact "Scheduling\nFunction" as F_Scheduling
+    artifact "Notification\nFunction" as F_Notification
+    artifact "Analytics\nFunction" as F_Analytics
+  }
+
+  database "Cloud DB\n(Reservations + Schedules)" as CloudDB
+
+  cloud "Message Queue / Topic\nReservationEvents" as EventBus
+}
+
+' HTTP entry points
+ApiGateway --> F_Create   : HTTP /reservations
+ApiGateway --> F_Approve  : HTTP /reservations/{id}/approve
+
+' Functions and DB
+F_Create    --> F_Scheduling : request suggestion
+F_Create    --> CloudDB      : save pending reservation
+F_Create    --> EventBus     : publish RESERVATION_REQUESTED
+
+F_Approve   --> CloudDB      : update reservation status
+F_Approve   --> EventBus     : publish RESERVATION_APPROVED
+
+F_Scheduling --> CloudDB     : read/write schedules
+
+' Event subscribers
+EventBus --> F_Notification  : trigger notifications
+EventBus --> F_Analytics     : trigger analytics
+
+F_Notification --> CloudDB   : log notification
+F_Analytics    --> CloudDB   : store metrics/events
+
+@enduml

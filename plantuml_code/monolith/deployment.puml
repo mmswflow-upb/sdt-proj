@@ -1,0 +1,27 @@
+@startuml Monolith_Deployment
+
+skinparam nodeStyle rectangle
+skinparam databaseStyle cylinder
+
+node "Monolith" as MonolithApp {
+
+  artifact "Web API / Controllers" as WebApi
+  artifact "CommandBus" as CommandBus
+  artifact "ReservationService" as ReservationService
+  artifact "SchedulingService" as SchedulingService
+  artifact "Validation Chain\n(FacultyPolicyValidator,\nScheduleConflictValidator)" as Validation
+  artifact "EventBus\n(InMemoryEventBus / MqttEventBus)" as EventBus
+}
+
+database "Reservations DB" as ReservationsDB
+cloud "MQTT Broker" as MqttBroker
+
+WebApi          --> CommandBus          : dispatch commands
+CommandBus      --> ReservationService  : call use-cases
+ReservationService --> Validation       : run validators
+ReservationService --> SchedulingService : check/suggest slots
+ReservationService --> ReservationsDB   : read/write reservations
+ReservationService --> EventBus         : publish domain events
+EventBus        --> MqttBroker          : forward events (MQTT mode)
+
+@enduml
