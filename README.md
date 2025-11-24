@@ -1,262 +1,165 @@
-# Campus Reservations — Milestone 2: Classes & Relationships
-
----
+# Campus Reservations – Architecture Evaluation
 
 ## Team
+- Sakka Mohamad-Mario
+- Zafar Azzam
+- Al-Khalidy Essam
 
-- Sakka Mohamad-Mario 1241EB
-- Zafar Azzam 1241EB
-- Al-Khalidy Essam 1241EB
+---
+## 1. Monolithic Architecture
 
-## Layered Overview
+In the monolithic version we run a single deployable application and a single database. The main layers and components are:
 
-- **L1 — Application**: Commands and the command bus (use-cases).
-- **L2 — Services**: Core orchestration and scheduling.
-- **L3 — Validation (CoR)**: Pluggable, ordered validators.
-- **L4 — Strategy**: Slot/room selection algorithm(s).
-- **L5 — Eventing (Observer)**: Domain events and event bus implementations.
-- **L6 — Domain**: Entities and enums.
-- **L7 — Infrastructure**: Database abstraction and concrete connections.
+- Application layer: commands and a `CommandBus` that represent use-cases and are exposed via HTTP endpoints.
+- Services: `ReservationService` (core reservation lifecycle) and `SchedulingService` (availability checks and room suggestions).
+- Validation: a chain of responsibility (`FacultyPolicyValidator`, `ScheduleConflictValidator`) that runs before a reservation is persisted.
+- Strategy: `SlotSelectionStrategy` / `LowestConflictStrategy`, used by `SchedulingService` to pick a room among candidates.
+- Eventing: an `EventBus` abstraction with concrete implementations `InMemoryEventBus` or `MqttEventBus` for domain events.
+- Domain: `ReservationRequest`, `User`, `Room`, `TimeSlot` and supporting enums (`ReservationStatus`, `Role`), used across services and validators.
+- Infrastructure: a `DatabaseConnection` abstraction with in-memory or SQL implementations created via a factory.
 
-Singletons: **CommandBus**, **InMemoryEventBus**, **MqttEventBus**, **InMemoryDatabaseConnection**, **SqlDatabaseConnection**.  
-Enum-driven factories: **EventBusFactory(EventBusKind)**, **DatabaseFactory(DatabaseKind)**.
+At runtime, everything lives in a single process. The `CampusReservationsApplication` entry point is responsible for wiring things together:
+
+- It creates the `DatabaseConnection` (in-memory or SQL) and the `EventBus` (in-memory or MQTT) using the existing factories.
+- It builds the `SchedulingService`, configures a `SlotSelectionStrategy`, and assembles the validation chain (`FacultyPolicyValidator -> ScheduleConflictValidator`).
+- It constructs the `ReservationService` by injecting the database connection, event bus, validation chain, and `SchedulingService`.
+- It creates a `CommandBus` that holds a reference to `ReservationService` and registers HTTP endpoints that translate incoming requests into commands.
+
+A typical HTTP request (for example `POST /reservations` or an approval endpoint) is handled by a controller that builds a `CreateReservationCommand` or `ApproveReservationCommand` and passes it to `CommandBus.dispatch(command)`. The `CommandBus` calls into `ReservationService` in the same process, which runs validation, talks to `SchedulingService` if needed, persists the `ReservationRequest` through `DatabaseConnection`, publishes domain events via the `EventBus`, and returns the result back to the controller. The controller then serializes that result into the HTTP response. All of this happens inside a single application and database, but with boundaries that match the later microservices and serverless variants.
+
+### Monolith Deployment Diagram
+
+![monolith_deploy_diag](diagrams/monolith/deployment.png)
+
+### Monolith Component Diagram
+
+![monolith_comp_diag](diagrams/monolith/component.png)
+
+**Pros:**
+
+- Simple to develop, run, and debug (one app, one DB).
+- No network calls between internal components.
+- Easy to understand for new team members.
+
+**Cons:**
+
+- We can only scale the whole application, not individual parts.
+- As the codebase grows, deployments become more risky and slower.
+- Technology choices are coupled across the whole system.
 
 ---
 
-## L1 — Application (Commands)
+## 2. Microservices Architecture
 
-### `Command` (interface)
-- **Responsibility:** Uniform contract for application actions.
-- **Key Operation:** `execute(ReservationService service)`.
-- **Relations:** Implemented by concrete commands; executed by `CommandBus`.
+We split the system into three services, each running in its own process with its own database or schema:
 
-### `CreateReservationCommand` (implements `Command`)
-- **Responsibility:** Encapsulates data/intent to create a reservation request.
-- **Holds:** `ReservationRequest req`, `User actor`.
-- **Calls:** `ReservationService.submit(req, actor)`.
-- **Relations:** Uses `ReservationService` via `CommandBus`.
+- **Command + Reservation Service**
+  - Exposes HTTP/gRPC endpoints (e.g. `POST /reservations`).
+  - Hosts the `CommandBus`, commands, `ReservationService`, validation chain, and reservation domain logic.
+  - Owns a **Commands + Reservations DB**, storing incoming commands with an idempotency key and status (`PENDING`, `APPROVED`, `REJECTED`/`REVOKED`) plus the corresponding reservation records.
+  - Publishes domain events such as `RESERVATION_REQUESTED` and `RESERVATION_APPROVED` to a message queue (MQTT topic or similar).
 
-### `ApproveReservationCommand` (implements `Command`)
-- **Responsibility:** Approves a reservation request.
-- **Holds:** `String requestId`, `User actor`.
-- **Calls:** `ReservationService.approve(requestId, actor)`.
-- **Relations:** Uses `ReservationService` via `CommandBus`.
+- **Scheduling Service**
+  - Owns room, occupancy, and timeslot logic.
+  - Exposes APIs like `GET /availability` and `POST /suggest`.
+  - Uses its own **Scheduling DB** for room definitions, equipment, and blocked time slots.
 
-### `CommandBus` *(Singleton)*
-- **Responsibility:** Dispatches `Command` objects synchronously.
-- **Holds:** `ReservationService service`.
-- **Operations:** `getInstance(ReservationService)`, `dispatch(Command)`.
-- **Relations:** Uses `ReservationService`; receives `Command`.
+- **Notification Service**
+  - Subscribes to domain events on the message queue (for example `RESERVATION_REQUESTED`, `RESERVATION_APPROVED`, `RESERVATION_REJECTED`).
+  - Sends emails or other notifications based on those events.
+  - Uses a **Notifications DB** for sent notifications, templates, or user preferences.
 
----
+In a typical create-reservation flow, the Command + Reservation Service receives POST /reservations, writes a PENDING command with an idempotency key, checks for duplicates, runs the validation chain, and then calls the Scheduling Service APIs directly to detect conflicts or get suggestions using the Scheduling DB. Based on the result, it updates the reservation and command status in its own database and finally publishes a reservation event to the message queue. The Notification Service reacts to events (for example RESERVATION_APPROVED) by looking up templates and recipient data, sending notifications, and logging them. Other consumers such as an Analytics Service can be added later by subscribing to the same events on the queue without changing these three core services.
 
-## L2 — Services
+### Microservices Deployment Diagram
 
-### `ReservationService`
-- **Responsibility:** Orchestrates lifecycle: **validate → persist → schedule → publish events**.
-- **Holds:**  
-  - `DatabaseConnection db`  
-  - `EventBus eventBus`  
-  - `ValidationHandler validators` (head of CoR)  
-  - `SchedulingService scheduling`  
-  - `FacultyPolicy policy`
-- **Operations:** `submit(ReservationRequest, User) : ValidationResult`, `approve(String, User)`.
-- **Relations:**  
-  - Composes/uses `ValidationHandler` chain (`FacultyPolicyValidator → ScheduleConflictValidator`).  
-  - Uses `DatabaseConnection` for persistence.  
-  - Uses `SchedulingService` for availability & blocking.  
-  - Publishes `DomainEvent` via `EventBus`.  
-  - Reads `FacultyPolicy` (policy constraints).
+![microservices_deploy_diag](diagrams/microservices/deployment.png)
 
-### `SchedulingService`
-- **Responsibility:** Keeps occupancy, checks availability, blocks slots, proposes alternatives.
-- **Holds:**  
-  - `SlotSelectionStrategy strategy`  
-  - `Map<String, List<TimeSlot>> occupancy`  
-  - `List<Room> catalog`
-- **Operations:** `available(String, TimeSlot): boolean`, `block(String, TimeSlot)`, `suggest(ReservationRequest): Room`.
-- **Relations:**  
-  - Used by `ReservationService` and `ScheduleConflictValidator`.  
-  - Delegates alternative choice to `SlotSelectionStrategy`.
+### Microservices Component Diagram
+
+![microservices_comp_diag](diagrams/microservices/component.png)
+
+**Pros:**
+
+- Clear separation of concerns between:
+  - Command + Reservation (entrypoints, idempotency, reservation lifecycle),
+  - Scheduling (rooms and occupancy),
+  - Notifications (side effects based on domain events).
+- The Commands + Reservations DB supports idempotent processing and auditing of commands.
+- Each service can be scaled, updated, and deployed independently.
+- Notifications are loosely coupled: they react to events in a message queue rather than being called directly.
+- Fault isolation: failure in the Notification Service does not block the main reservation flow; events can be retried from the queue.
+
+**Cons:**
+
+- Higher operational complexity (monitoring, CI/CD per service, message broker).
+- Requires well-defined API contracts between Command + Reservation and Scheduling, and clear event formats on the queue.
+- More moving parts to coordinate when changing cross-service flows.
 
 ---
 
-## L3 — Validation (Chain of Responsibility)
+## 3. Event-Driven Serverless Architecture
 
-### `ValidationHandler` (abstract)
-- **Responsibility:** Base link in CoR; defines `then()` and `validate()`.
-- **Holds:** `ValidationHandler next`.
-- **Operations:**  
-  - `then(ValidationHandler) : ValidationHandler`  
-  - `validate(ReservationRequest, User) : ValidationResult`  
-  - `check(ReservationRequest, User) : ValidationResult` *(protected, to implement)*
-- **Relations:** Parent of concrete validators; chained in `ReservationService`.
+In the serverless variant we implement the main flows as cloud functions. The cloud provider manages runtime and scaling, and we model important changes as domain events.
 
-### `FacultyPolicyValidator` (extends `ValidationHandler`)
-- **Responsibility:** Enforces faculty policy (faculty match, allowed roles, max duration, blackout).
-- **Holds:** `FacultyPolicy policy`.
-- **check():** Validates actor faculty/role/time window vs. policy.
-- **Relations:** First link in validation chain.
+- `CreateReservation` function
+  - Trigger: HTTP request when a student submits a form.
+  - Steps: validate the request using shared validators, call a scheduling function, write to a cloud database, then publish a `RESERVATION_REQUESTED` event.
+- `ApproveReservation` function
+  - Trigger: HTTP request when an approver acts.
+  - Steps: load and update the reservation, write to the DB, publish `RESERVATION_APPROVED`.
+- `SchedulingFunction`
+  - Trigger: direct invocation from other functions.
+  - Contains the logic from `SchedulingService` for availability checks and suggestions.
+- Notification and analytics functions
+  - Trigger: messages for `RESERVATION_REQUESTED`, `RESERVATION_APPROVED`, and similar event types.
+  - React to events and send emails or record metrics.
 
-### `ScheduleConflictValidator` (extends `ValidationHandler`)
-- **Responsibility:** Ensures no schedule conflicts; proposes an alternative room if needed.
-- **Holds:** `SchedulingService scheduling`.
-- **check():** `available(room, slot)` else `suggest(req)`; returns chosen `Room` in `ValidationResult`.
-- **Relations:** Follows `FacultyPolicyValidator` in the chain.
+Shared entities, validators, and database helpers are extracted into a common library or runtime layer that all functions reuse. Functions are triggered by HTTP events, message-queue events, or scheduled timers, and they react to domain events instead of calling each other directly.
 
-### `ValidationResult`
-- **Responsibility:** Immutable outcome of a validation step/chain.
-- **Holds:** `boolean ok`, `String msg`, `Room chosen` *(optional)*.
-- **Construction:** `ok()`, `ok(Room)`, `fail(String)`.
-- **Relations:** Returned by validators and consumed by `ReservationService`.
+### Event-Driven Serverless Deployment Diagram
 
----
+![event_driven_serverless_deploy_diag](diagrams/serverless/deployment.png)
 
-## L4 — Strategy
+### Event-Driven Serverless Component Diagram
 
-### `SlotSelectionStrategy` (interface)
-- **Responsibility:** Select a room among available candidates.
-- **Operation:** `select(List<Room>, ReservationRequest) : Room`.
-- **Relations:** Implemented by concrete strategies, used by `SchedulingService`.
+![event_driven_serverless_comp_diag](diagrams/serverless/component.png)
 
-### `LowestConflictStrategy` (implements `SlotSelectionStrategy`)
-- **Responsibility:** Simple policy selecting a suitable available room.
-- **Operation:** `select(...) : Room`.
-- **Relations:** Injected into `SchedulingService`.
+**Pros:**
+
+- No server or process management; the cloud provider handles provisioning and scaling.
+- Good for spiky or occasional workloads and background tasks.
+- Easy to add new behaviours by subscribing new functions to existing events.
+
+**Cons:**
+
+- The main booking flow is multi-step and stateful, which is harder to follow when split across many functions.
+- Stronger coupling to a specific cloud provider and its limits.
+- Cold starts and resource limits can impact response times for interactive users.
 
 ---
 
-## L5 — Eventing (Observer)
+## 4. Final Comparison and Choice
 
-### `DomainEventType` (enum)
-- **Values:** `RESERVATION_REQUESTED`, `RESERVATION_APPROVED`, `RESERVATION_REJECTED`.
+### Summary
 
-### `DomainEvent`
-- **Responsibility:** Represents a published domain event.
-- **Holds:** `DomainEventType type`, `String aggregateId`, `Object payload`.
+- Monolithic
+  - Simple, one deployment, ideal for early development.
+  - Limited scaling per component and less flexibility as the system grows.
 
-### `EventListener` (interface)
-- **Responsibility:** Event handler contract.
-- **Operation:** `on(DomainEvent event)`.
+- Microservices
+  - Splits the system into:
+    - Command + Reservation Service (with Commands + Reservations DB and idempotent command handling),
+    - Scheduling Service (with Scheduling DB),
+    - Notification Service (listening on a message queue).
+  - Fits our logical boundaries and supports independent scaling and deployment of each core concern.
+  - Works well with our existing event concepts and allows new services (extra notifications, analytics, reporting) to be added by subscribing to the same events on the message queue.
+  - Requires more infrastructure and operational tooling, but there is a clear evolution path from the current design.
 
-### `EventBus` (interface)
-- **Responsibility:** Publish–subscribe abstraction.
-- **Operations:** `publish(DomainEvent)`, `subscribe(DomainEventType, EventListener)`.
+- Event-Driven Serverless
+  - Minimal infrastructure management and naturally event-driven.
+  - Better suited for auxiliary tasks than for the core multi-step reservation flow in our case.
 
-### `InMemoryEventBus` *(Singleton, implements `EventBus`)*
-- **Responsibility:** In-process pub–sub for events.
-- **Holds:** `Map<DomainEventType, List<EventListener>> routes`.
-- **Operations:** `getInstance()`, `publish(...)`, `subscribe(...)`.
-- **Relations:** Used by `ReservationService` in in-memory deployments.
+### Our choice
 
-### `MqttClient`
-- **Responsibility:** Minimal client abstraction for MQTT publish/subscribe (stubbed API).
-- **Operations:** `publish(topic, payload)`, `subscribe(topic, handler)`.
-
-### `MqttEventBus` *(Singleton, implements `EventBus`)*
-- **Responsibility:** Event bus backed by `MqttClient`.
-- **Holds:** `MqttClient client`, local handlers per event type.
-- **Operations:** `getInstance(MqttClient)`, `publish(...)`, `subscribe(...)`.
-- **Relations:** Used by `ReservationService` in MQTT mode.
-
-### `EventBusKind` (enum)
-- **Values:** `IN_MEMORY`, `MQTT`.
-
-### `EventBusFactory`
-- **Responsibility:** Enum-driven creation of `EventBus`.
-- **Operation:** `create(EventBusKind, MqttClient) : EventBus`.
-- **Relations:** Produces singletons (`InMemoryEventBus` or `MqttEventBus`).
-
----
-
-## L6 — Domain
-
-### `ReservationStatus` (enum)
-- **Values:** `PENDING`, `APPROVED`, `REJECTED`.
-
-### `Role` (enum)
-- **Values:** `PROFESSOR`, `ADMIN`, `STAFF`.
-
-### `TimeSlot`
-- **Responsibility:** Immutable interval with overlap/minutes helpers.
-- **Holds:** `LocalDateTime start`, `LocalDateTime end`.
-- **Key Ops:** `minutes()`, `overlaps(TimeSlot) : boolean`.
-
-### `Room`
-- **Responsibility:** Room capacity/equipment metadata.
-- **Holds:** `String roomId`, `int capacity`, `Set<String> equipment`.
-- **Key Op:** `hasAll(List<String>) : boolean`.
-
-### `User`
-- **Responsibility:** Requesting/approving actor.
-- **Holds:** `String userId`, `Role role`, `String facultyKey`.
-
-### `FacultyPolicy`
-- **Responsibility:** Faculty constraints for validations.
-- **Holds:** `String facultyKey`, `int maxMinutes`, `boolean enforceBlackout`, `boolean hardPref`, `List<Role> allowedRoles`.
-
-### `ReservationRequest`
-- **Responsibility:** Aggregate for a reservation.
-- **Holds:**  
-  - `String requestId` *(generated)*  
-  - `String requesterId`  
-  - `String roomId` *(mutable if an alternative is chosen)*  
-  - `TimeSlot slot`  
-  - `int attendees`  
-  - `List<String> equipment`  
-  - `ReservationStatus status`
-- **Relations:** Validated by CoR; persisted by `DatabaseConnection`; scheduled by `SchedulingService`; referenced in `DomainEvent`.
-
----
-
-## L7 — Infrastructure
-
-### `DatabaseConnection` (interface)
-- **Responsibility:** Persistence abstraction for `ReservationRequest`.
-- **Operations:** `save(ReservationRequest)`, `markApproved(String)`, `exists(String): boolean`, `findById(String): ReservationRequest`.
-
-### `InMemoryDatabaseConnection` *(Singleton, implements `DatabaseConnection`)*
-- **Responsibility:** In-process map-backed storage.
-- **Holds:** `Map<String, ReservationRequest> store`.
-- **Relations:** Used in memory-mode; accessed by `ReservationService`.
-
-### `SqlDatabaseConnection` *(Singleton, implements `DatabaseConnection`)*
-- **Responsibility:** Placeholder for external SQL persistence (pool provided).
-- **Holds:** `Object pool`.
-
-### `DatabaseKind` (enum)
-- **Values:** `IN_MEMORY`, `SQL`.
-
-### `DatabaseFactory`
-- **Responsibility:** Enum-driven creation of `DatabaseConnection`.
-- **Operation:** `create(DatabaseKind, Object pool) : DatabaseConnection`.
-- **Relations:** Produces singletons (`InMemoryDatabaseConnection` or `SqlDatabaseConnection`).
-
----
-
-## Relationships Summary (selected)
-
-- **Commands → Services**:  
-  `CreateReservationCommand.execute()` → `ReservationService.submit(...)`  
-  `ApproveReservationCommand.execute()` → `ReservationService.approve(...)`  
-  `CommandBus.dispatch(...)` → `Command.execute(service)`
-
-- **ReservationService → Validation**:  
-  Builds chain `FacultyPolicyValidator → ScheduleConflictValidator`; calls `validate(...)`.
-
-- **ReservationService → Infra/Eventing/Scheduling**:  
-  `db.save(...)`, `db.markApproved(...)`, `db.exists(...)`  
-  `scheduling.available(...)`, `scheduling.block(...)`  
-  `eventBus.publish(DomainEvent)`
-
-- **SchedulingService → Strategy**:  
-  `suggest(req)` delegates to `SlotSelectionStrategy.select(...)`.
-
-- **Factories (enum-driven) → Singletons**:  
-  `EventBusFactory.create(EventBusKind, MqttClient)` → `InMemoryEventBus.getInstance()` or `MqttEventBus.getInstance(client)`  
-  `DatabaseFactory.create(DatabaseKind, pool)` → `InMemoryDatabaseConnection.getInstance()` or `SqlDatabaseConnection.getInstance(pool)`
-
-- **Domain used throughout**:  
-  `ReservationRequest`, `TimeSlot`, `Room`, `User`, `FacultyPolicy`, `ReservationStatus`, `Role` are referenced by services, validators, strategy, eventing, and infra.
-
----
+For Campus Reservations, our preferred long-term architecture is the microservices approach. The current codebase (proof-of-concept) already has clear boundaries that map well to a Command + Reservation Service (with idempotent command handling and its own database), a Scheduling Service (owning room and schedule data), and a Notification Service (subscribing to events from a message queue). Turning these into separate services gives us independent scaling, clearer ownership, and room to add new services such as extended notifications or analytics by subscribing to the same domain events.
