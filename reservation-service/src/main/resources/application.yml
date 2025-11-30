@@ -1,0 +1,26 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:postgresql://reservation-db:5432/reservation
+    username: reservation
+    password: reservation
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+# Shared secret used for signing and verifying JWTs. In a production system this should be stored
+# securely in environment variables or a secrets manager.
+security:
+  jwt:
+    secret: mysecretkeymysecretkeymysecretkey
+
+# Base URL of the scheduling-service used for inter-service calls. Overridden via environment
+# variables in containerised environments.
+scheduling:
+  service:
+    base-url: http://scheduling-service:8080

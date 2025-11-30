@@ -1,0 +1,62 @@
+package com.example.facultyservice.entity;
+
+import jakarta.persistence.*;
+
+/**
+ * Entity representing a system user. Users are authenticated via username/password and issued JWTs
+ * that include their id and role. Each user belongs to a faculty.
+ */
+@Entity
+@Table(name = "users")
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    @Column(nullable = false, unique = true)
+    private String username;
+    @Column(nullable = false)
+    private String password;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Role role;
+    private String facultyId;
+
+    public User() {}
+
+    public User(String username, String password, Role role, String facultyId) {
+        this.username = username;
+        this.password = password;
+        this.role = role;
+        this.facultyId = facultyId;
+    }
+    public Long getId() {
+        return id;
+    }
+    public void setId(Long id) {
+        this.id = id;
+    }
+    public String getUsername() {
+        return username;
+    }
+    public void setUsername(String username) {
+        this.username = username;
+    }
+    public String getPassword() {
+        return password;
+    }
+    public void setPassword(String password) {
+        this.password = password;
+    }
+    public Role getRole() {
+        return role;
+    }
+    public void setRole(Role role) {
+        this.role = role;
+    }
+    public String getFacultyId() {
+        return facultyId;
+    }
+    public void setFacultyId(String facultyId) {
+        this.facultyId = facultyId;
+    }
+}

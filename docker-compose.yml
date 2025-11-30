@@ -1,0 +1,103 @@
+version: "3.9"
+
+# This compose file orchestrates the three microservices (reservation-service, scheduling-service,
+# faculty-service) and their respective PostgreSQL databases. Each service is built from the
+# local Dockerfile within its directory. The services communicate using the hostnames defined
+# here (e.g. reservation-service calls scheduling-service via http://scheduling-service:8080).
+
+services:
+  # Database for the reservation-service
+  reservation-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: reservation
+      POSTGRES_USER: reservation
+      POSTGRES_PASSWORD: reservation
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "reservation"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Database for the scheduling-service
+  scheduling-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: scheduling
+      POSTGRES_USER: scheduling
+      POSTGRES_PASSWORD: scheduling
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "scheduling"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Database for the faculty-service
+  faculty-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: faculty
+      POSTGRES_USER: faculty
+      POSTGRES_PASSWORD: faculty
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "faculty"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # reservation-service
+  reservation-service:
+    build: ./reservation-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://reservation-db:5432/reservation
+      SPRING_DATASOURCE_USERNAME: reservation
+      SPRING_DATASOURCE_PASSWORD: reservation
+      SECURITY_JWT_SECRET: mysecretkeymysecretkeymysecretkey
+      SCHEDULING_SERVICE_BASE_URL: http://scheduling-service:8080
+    depends_on:
+      reservation-db:
+        condition: service_healthy
+      scheduling-service:
+        condition: service_started
+    ports:
+      - "8081:8080"
+
+  # scheduling-service
+  scheduling-service:
+    build: ./scheduling-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://scheduling-db:5432/scheduling
+      SPRING_DATASOURCE_USERNAME: scheduling
+      SPRING_DATASOURCE_PASSWORD: scheduling
+      SECURITY_JWT_SECRET: mysecretkeymysecretkeymysecretkey
+    depends_on:
+      scheduling-db:
+        condition: service_healthy
+    ports:
+      - "8082:8080"
+
+  # faculty-service
+  faculty-service:
+    build: ./faculty-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://faculty-db:5432/faculty
+      SPRING_DATASOURCE_USERNAME: faculty
+      SPRING_DATASOURCE_PASSWORD: faculty
+      SECURITY_JWT_SECRET: mysecretkeymysecretkeymysecretkey
+      SCHEDULING_SERVICE_BASE_URL: http://scheduling-service:8080
+      RESERVATION_SERVICE_BASE_URL: http://reservation-service:8080
+    depends_on:
+      faculty-db:
+        condition: service_healthy
+      scheduling-service:
+        condition: service_started
+      reservation-service:
+        condition: service_started
+    ports:
+      - "8083:8080"
