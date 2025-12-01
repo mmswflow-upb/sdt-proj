@@ -10,13 +10,13 @@ services:
   reservation-db:
     image: postgres:15
     environment:
-      POSTGRES_DB: reservation
-      POSTGRES_USER: reservation
-      POSTGRES_PASSWORD: reservation
+      POSTGRES_DB: ${RESERVATION_DB_NAME:-reservation}
+      POSTGRES_USER: ${RESERVATION_DB_USER:-reservation}
+      POSTGRES_PASSWORD: ${RESERVATION_DB_PASSWORD:-reservation}
     ports:
       - "5433:5432"
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "reservation"]
+      test: ["CMD", "pg_isready", "-U", "${RESERVATION_DB_USER:-reservation}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -25,13 +25,13 @@ services:
   scheduling-db:
     image: postgres:15
     environment:
-      POSTGRES_DB: scheduling
-      POSTGRES_USER: scheduling
-      POSTGRES_PASSWORD: scheduling
+      POSTGRES_DB: ${SCHEDULING_DB_NAME:-scheduling}
+      POSTGRES_USER: ${SCHEDULING_DB_USER:-scheduling}
+      POSTGRES_PASSWORD: ${SCHEDULING_DB_PASSWORD:-scheduling}
     ports:
       - "5434:5432"
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "scheduling"]
+      test: ["CMD", "pg_isready", "-U", "${SCHEDULING_DB_USER:-scheduling}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,13 +40,13 @@ services:
   faculty-db:
     image: postgres:15
     environment:
-      POSTGRES_DB: faculty
-      POSTGRES_USER: faculty
-      POSTGRES_PASSWORD: faculty
+      POSTGRES_DB: ${FACULTY_DB_NAME:-faculty}
+      POSTGRES_USER: ${FACULTY_DB_USER:-faculty}
+      POSTGRES_PASSWORD: ${FACULTY_DB_PASSWORD:-faculty}
     ports:
       - "5435:5432"
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "faculty"]
+      test: ["CMD", "pg_isready", "-U", "${FACULTY_DB_USER:-faculty}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -55,10 +55,10 @@ services:
   reservation-service:
     build: ./reservation-service
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://reservation-db:5432/reservation
-      SPRING_DATASOURCE_USERNAME: reservation
-      SPRING_DATASOURCE_PASSWORD: reservation
-      SECURITY_JWT_SECRET: mysecretkeymysecretkeymysecretkey
+      SPRING_DATASOURCE_URL: jdbc:postgresql://reservation-db:5432/${RESERVATION_DB_NAME:-reservation}
+      SPRING_DATASOURCE_USERNAME: ${RESERVATION_DB_USER:-reservation}
+      SPRING_DATASOURCE_PASSWORD: ${RESERVATION_DB_PASSWORD:-reservation}
+      SECURITY_JWT_SECRET: ${SECURITY_JWT_SECRET:-mysecretkeymysecretkeymysecretkey}
       SCHEDULING_SERVICE_BASE_URL: http://scheduling-service:8080
     depends_on:
       reservation-db:
@@ -72,10 +72,10 @@ services:
   scheduling-service:
     build: ./scheduling-service
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://scheduling-db:5432/scheduling
-      SPRING_DATASOURCE_USERNAME: scheduling
-      SPRING_DATASOURCE_PASSWORD: scheduling
-      SECURITY_JWT_SECRET: mysecretkeymysecretkeymysecretkey
+      SPRING_DATASOURCE_URL: jdbc:postgresql://scheduling-db:5432/${SCHEDULING_DB_NAME:-scheduling}
+      SPRING_DATASOURCE_USERNAME: ${SCHEDULING_DB_USER:-scheduling}
+      SPRING_DATASOURCE_PASSWORD: ${SCHEDULING_DB_PASSWORD:-scheduling}
+      SECURITY_JWT_SECRET: ${SECURITY_JWT_SECRET:-mysecretkeymysecretkeymysecretkey}
     depends_on:
       scheduling-db:
         condition: service_healthy
@@ -86,10 +86,12 @@ services:
   faculty-service:
     build: ./faculty-service
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://faculty-db:5432/faculty
-      SPRING_DATASOURCE_USERNAME: faculty
-      SPRING_DATASOURCE_PASSWORD: faculty
-      SECURITY_JWT_SECRET: mysecretkeymysecretkeymysecretkey
+      SPRING_DATASOURCE_URL: jdbc:postgresql://faculty-db:5432/${FACULTY_DB_NAME:-faculty}
+      SPRING_DATASOURCE_USERNAME: ${FACULTY_DB_USER:-faculty}
+      SPRING_DATASOURCE_PASSWORD: ${FACULTY_DB_PASSWORD:-faculty}
+      SECURITY_JWT_SECRET: ${SECURITY_JWT_SECRET:-mysecretkeymysecretkeymysecretkey}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
       SCHEDULING_SERVICE_BASE_URL: http://scheduling-service:8080
       RESERVATION_SERVICE_BASE_URL: http://reservation-service:8080
     depends_on:
@@ -101,3 +103,15 @@ services:
         condition: service_started
     ports:
       - "8083:8080"
+
+  # gateway-service (API Gateway)
+  gateway-service:
+    build: ./gateway-service
+    environment:
+      SECURITY_JWT_SECRET: ${SECURITY_JWT_SECRET:-mysecretkeymysecretkeymysecretkey}
+    depends_on:
+      - faculty-service
+      - reservation-service
+      - scheduling-service
+    ports:
+      - "8080:8080"

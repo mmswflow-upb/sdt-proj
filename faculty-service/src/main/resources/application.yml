@@ -16,11 +16,15 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-# Secret used for signing and verifying JWT tokens. In production this should be provided
-# through a secure mechanism (environment variable or secrets manager).
+# Secret used for signing and verifying JWT tokens. Provided via environment variable.
 security:
   jwt:
-    secret: mysecretkeymysecretkeymysecretkey
+    secret: ${SECURITY_JWT_SECRET:mysecretkeymysecretkeymysecretkey}
+
+# Default admin credentials (used on first startup)
+admin:
+  username: ${ADMIN_USERNAME:admin}
+  password: ${ADMIN_PASSWORD:admin}
 
 # Base URLs of the other microservices. These are used by the faculty-service to
 # synchronize rooms and reservations with the scheduling-service and reservation-service.

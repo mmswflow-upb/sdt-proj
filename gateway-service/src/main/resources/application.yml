@@ -1,0 +1,91 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway-service
+  cloud:
+    gateway:
+      routes:
+        # Auth routes (faculty-service)
+        - id: auth-route
+          uri: http://faculty-service:8080
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - RewritePath=/api/auth/(?<segment>.*), /auth/$\{segment}
+
+        # Faculty routes (faculty-service)
+        - id: faculty-route
+          uri: http://faculty-service:8080
+          predicates:
+            - Path=/api/faculties/**
+          filters:
+            - RewritePath=/api/faculties/(?<segment>.*), /faculties/$\{segment}
+
+        # Faculty rooms routes (faculty-service)
+        - id: faculty-rooms-route
+          uri: http://faculty-service:8080
+          predicates:
+            - Path=/api/faculty-rooms/**
+          filters:
+            - RewritePath=/api/faculty-rooms/(?<segment>.*), /faculty-rooms/$\{segment}
+
+        # Rooms routes (faculty-service)
+        - id: rooms-route-faculty
+          uri: http://faculty-service:8080
+          predicates:
+            - Path=/api/rooms/**
+          filters:
+            - RewritePath=/api/rooms/(?<segment>.*), /rooms/$\{segment}
+
+        # Reservation routes (reservation-service)
+        - id: reservation-route
+          uri: http://reservation-service:8080
+          predicates:
+            - Path=/api/reservations/**
+          filters:
+            - RewritePath=/api/reservations/(?<segment>.*), /reservations/$\{segment}
+
+        # Scheduling routes (scheduling-service)
+        - id: scheduling-route
+          uri: http://scheduling-service:8080
+          predicates:
+            - Path=/api/scheduling/**
+          filters:
+            - RewritePath=/api/scheduling/(?<segment>.*), /scheduling/$\{segment}
+
+      # Global CORS configuration
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: false
+
+# JWT Security Configuration
+security:
+  jwt:
+    secret: ${SECURITY_JWT_SECRET:mysecretkeymysecretkeymysecretkey}
+
+# Actuator endpoints for health checks
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    reactor.netty: INFO

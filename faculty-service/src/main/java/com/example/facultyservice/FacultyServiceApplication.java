@@ -18,15 +18,17 @@ public class FacultyServiceApplication {
      */
     @Bean
     public org.springframework.boot.CommandLineRunner bootstrapDefaultAdmin(com.example.facultyservice.repository.UserRepository userRepository,
-                                                                             com.example.facultyservice.service.UserService userService) {
+                                                                             com.example.facultyservice.service.UserService userService,
+                                                                             @org.springframework.beans.factory.annotation.Value("${admin.username}") String adminUsername,
+                                                                             @org.springframework.beans.factory.annotation.Value("${admin.password}") String adminPassword) {
         return args -> {
             // Check if any admin exists
             boolean existsAdmin = userRepository.findAll().stream()
                     .anyMatch(u -> u.getRole() == com.example.facultyservice.entity.Role.ADMIN);
             if (!existsAdmin) {
                 try {
-                    userService.register("admin", "admin", "ADMIN", "");
-                    System.out.println("Default admin user created: username=admin, password=admin");
+                    userService.register(adminUsername, adminPassword, "ADMIN", "");
+                    System.out.println("Default admin user created: username=" + adminUsername);
                 } catch (Exception e) {
                     // Ignore if already created concurrently
                 }
