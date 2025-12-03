@@ -1,0 +1,315 @@
+{
+	"info": {
+		"name": "Authorization Tests",
+		"description": "Tests role-based access control - verifies that users cannot perform operations outside their permissions",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080/api",
+			"type": "string"
+		},
+		{
+			"key": "student_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "faculty_admin_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "faculty_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "room_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "reservation_id",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Student Authorization Tests",
+			"item": [
+				{
+					"name": "Student Cannot Approve Reservations",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Student blocked from approving (403 or 401)', function() {",
+									"    pm.expect([403, 401]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{student_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reservations/{{reservation_id}}/approve",
+							"host": ["{{base_url}}"],
+							"path": ["reservations", "{{reservation_id}}", "approve"]
+						}
+					}
+				},
+				{
+					"name": "Student Cannot Revoke Reservations",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Student blocked from revoking (403 or 401)', function() {",
+									"    pm.expect([403, 401]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{student_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/reservations/{{reservation_id}}/revoke",
+							"host": ["{{base_url}}"],
+							"path": ["reservations", "{{reservation_id}}", "revoke"]
+						}
+					}
+				},
+				{
+					"name": "Student Cannot Create Rooms",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Student blocked from creating rooms (403 or 401)', function() {",
+									"    pm.expect([403, 401]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{student_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"roomId\": \"STUDENT_ROOM_TEST\",\n  \"facultyId\": \"{{faculty_id}}\",\n  \"capacity\": 30,\n  \"equipment\": \"projector\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/rooms",
+							"host": ["{{base_url}}"],
+							"path": ["rooms"]
+						}
+					}
+				},
+				{
+					"name": "Student Cannot Delete Rooms",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Student blocked from deleting rooms (403 or 401)', function() {",
+									"    pm.expect([403, 401]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{student_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/rooms/{{room_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["rooms", "{{room_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Student Cannot Create Faculties",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Student blocked from creating faculties (403 or 401)', function() {",
+									"    pm.expect([403, 401]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{student_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"facultyId\": \"STUDENT_FAC_TEST\",\n  \"name\": \"Student Created Faculty\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/faculties",
+							"host": ["{{base_url}}"],
+							"path": ["faculties"]
+						}
+					}
+				},
+				{
+					"name": "Student Cannot Delete Faculties",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Student blocked from deleting faculties (403 or 401)', function() {",
+									"    pm.expect([403, 401]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{student_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/faculties/{{faculty_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["faculties", "{{faculty_id}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Faculty Admin Authorization Tests",
+			"item": [
+				{
+					"name": "Faculty Admin Cannot Create Faculties",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Faculty admin blocked from creating faculties (403 or 401)', function() {",
+									"    pm.expect([403, 401]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{faculty_admin_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"facultyId\": \"FADMIN_FAC_TEST\",\n  \"name\": \"Faculty Admin Created Faculty\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/faculties",
+							"host": ["{{base_url}}"],
+							"path": ["faculties"]
+						}
+					}
+				},
+				{
+					"name": "Faculty Admin Cannot Delete Faculties",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Faculty admin blocked from deleting faculties (403 or 401)', function() {",
+									"    pm.expect([403, 401]).to.include(pm.response.code);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{faculty_admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/faculties/{{faculty_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["faculties", "{{faculty_id}}"]
+						}
+					}
+				}
+			]
+		}
+	]
+}

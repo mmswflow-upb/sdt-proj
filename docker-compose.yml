@@ -1,9 +1,8 @@
-version: "3.9"
-
 # This compose file orchestrates the three microservices (reservation-service, scheduling-service,
 # faculty-service) and their respective PostgreSQL databases. Each service is built from the
 # local Dockerfile within its directory. The services communicate using the hostnames defined
 # here (e.g. reservation-service calls scheduling-service via http://scheduling-service:8080).
+name: sdt-campus-reservations
 
 services:
   # Database for the reservation-service
@@ -15,11 +14,6 @@ services:
       POSTGRES_PASSWORD: ${RESERVATION_DB_PASSWORD:-reservation}
     ports:
       - "5433:5432"
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${RESERVATION_DB_USER:-reservation}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   # Database for the scheduling-service
   scheduling-db:
@@ -30,11 +24,6 @@ services:
       POSTGRES_PASSWORD: ${SCHEDULING_DB_PASSWORD:-scheduling}
     ports:
       - "5434:5432"
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${SCHEDULING_DB_USER:-scheduling}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   # Database for the faculty-service
   faculty-db:
@@ -45,11 +34,6 @@ services:
       POSTGRES_PASSWORD: ${FACULTY_DB_PASSWORD:-faculty}
     ports:
       - "5435:5432"
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${FACULTY_DB_USER:-faculty}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   # reservation-service
   reservation-service:
@@ -60,11 +44,6 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${RESERVATION_DB_PASSWORD:-reservation}
       SECURITY_JWT_SECRET: ${SECURITY_JWT_SECRET:-mysecretkeymysecretkeymysecretkey}
       SCHEDULING_SERVICE_BASE_URL: http://scheduling-service:8080
-    depends_on:
-      reservation-db:
-        condition: service_healthy
-      scheduling-service:
-        condition: service_started
     ports:
       - "8081:8080"
 
@@ -76,9 +55,6 @@ services:
       SPRING_DATASOURCE_USERNAME: ${SCHEDULING_DB_USER:-scheduling}
       SPRING_DATASOURCE_PASSWORD: ${SCHEDULING_DB_PASSWORD:-scheduling}
       SECURITY_JWT_SECRET: ${SECURITY_JWT_SECRET:-mysecretkeymysecretkeymysecretkey}
-    depends_on:
-      scheduling-db:
-        condition: service_healthy
     ports:
       - "8082:8080"
 
@@ -94,13 +70,6 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
       SCHEDULING_SERVICE_BASE_URL: http://scheduling-service:8080
       RESERVATION_SERVICE_BASE_URL: http://reservation-service:8080
-    depends_on:
-      faculty-db:
-        condition: service_healthy
-      scheduling-service:
-        condition: service_started
-      reservation-service:
-        condition: service_started
     ports:
       - "8083:8080"
 
@@ -109,9 +78,5 @@ services:
     build: ./gateway-service
     environment:
       SECURITY_JWT_SECRET: ${SECURITY_JWT_SECRET:-mysecretkeymysecretkeymysecretkey}
-    depends_on:
-      - faculty-service
-      - reservation-service
-      - scheduling-service
     ports:
       - "8080:8080"

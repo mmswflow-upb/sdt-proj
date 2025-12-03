@@ -1,0 +1,239 @@
+{
+	"info": {
+		"name": "Setup - Auth and Resources",
+		"description": "Initial setup collection - register users, create faculties and rooms. Run this FIRST before other collections.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080/api",
+			"type": "string"
+		},
+		{
+			"key": "admin_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "student_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "faculty_admin_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "faculty_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "room_id",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Register Admin",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 200 || pm.response.code === 201) {",
+							"    var jsonData = pm.response.json();",
+							"    pm.collectionVariables.set('admin_token', jsonData.token);",
+							"    pm.test('Admin registered successfully', function() {",
+							"        pm.expect(jsonData.token).to.not.be.undefined;",
+							"    });",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\",\n  \"email\": \"admin@university.com\",\n  \"role\": \"ADMIN\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/auth/register",
+					"host": ["{{base_url}}"],
+					"path": ["auth", "register"]
+				}
+			}
+		},
+		{
+			"name": "2. Register Student",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 200 || pm.response.code === 201) {",
+							"    var jsonData = pm.response.json();",
+							"    pm.collectionVariables.set('student_token', jsonData.token);",
+							"    pm.test('Student registered successfully', function() {",
+							"        pm.expect(jsonData.token).to.not.be.undefined;",
+							"    });",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"username\": \"student1\",\n  \"password\": \"student123\",\n  \"email\": \"student1@university.com\",\n  \"role\": \"STUDENT\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/auth/register",
+					"host": ["{{base_url}}"],
+					"path": ["auth", "register"]
+				}
+			}
+		},
+		{
+			"name": "3. Register Faculty Admin",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 200 || pm.response.code === 201) {",
+							"    var jsonData = pm.response.json();",
+							"    pm.collectionVariables.set('faculty_admin_token', jsonData.token);",
+							"    pm.test('Faculty admin registered successfully', function() {",
+							"        pm.expect(jsonData.token).to.not.be.undefined;",
+							"    });",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"username\": \"facultyadmin1\",\n  \"password\": \"admin123\",\n  \"email\": \"facultyadmin@university.com\",\n  \"role\": \"FACULTY_ADMIN\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/auth/register",
+					"host": ["{{base_url}}"],
+					"path": ["auth", "register"]
+				}
+			}
+		},
+		{
+			"name": "4. Create Faculty",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 200 || pm.response.code === 201) {",
+							"    var jsonData = pm.response.json();",
+							"    pm.collectionVariables.set('faculty_id', jsonData.id || jsonData.facultyId);",
+							"    pm.test('Faculty created successfully', function() {",
+							"        pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+							"    });",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{admin_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"facultyId\": \"CS\",\n  \"name\": \"Computer Science\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/faculties",
+					"host": ["{{base_url}}"],
+					"path": ["faculties"]
+				}
+			}
+		},
+		{
+			"name": "5. Create Room",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 200 || pm.response.code === 201) {",
+							"    var jsonData = pm.response.json();",
+							"    pm.collectionVariables.set('room_id', jsonData.id || jsonData.roomId);",
+							"    pm.test('Room created successfully', function() {",
+							"        pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+							"    });",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{admin_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"roomId\": \"CS-101\",\n  \"facultyId\": \"{{faculty_id}}\",\n  \"capacity\": 30,\n  \"equipment\": \"projector,whiteboard\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/rooms",
+					"host": ["{{base_url}}"],
+					"path": ["rooms"]
+				}
+			}
+		}
+	]
+}

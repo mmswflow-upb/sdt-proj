@@ -36,14 +36,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             if (jwtUtil.validateToken(token)) {
                 String userId = jwtUtil.getUserId(token);
                 String role = jwtUtil.getRole(token);
-                String authority = role.startsWith("ROLE_") ? role : "ROLE_" + role;
-                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                String authority = role != null && role.startsWith("ROLE_") ? role : "ROLE_" + role;
+                // Store the token as credentials so it can be forwarded to other services
+                UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
                         userId,
-                        null,
+                        token,  // Store the JWT token here
                         Collections.singleton(new SimpleGrantedAuthority(authority))
                 );
-                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(auth);
+                authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
             }
         }
         filterChain.doFilter(request, response);

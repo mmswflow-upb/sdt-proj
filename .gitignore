@@ -179,6 +179,13 @@ build/
 ### VS Code ###
 .vscode/
 
+### env files ###
+.env
+
+### node_modules for k6 ###
+node_modules/
+
+
 ### Some additional ignores (sort later)
 *.DS_Store
 *.sw?
@@ -199,3 +206,6 @@ README.html
 *.iml
 .idea
 .exercism
+
+
+

@@ -45,13 +45,16 @@ public class SchedulingClient {
 
     /**
      * Creates a schedule entry by calling POST /schedules on the scheduling-service. The body contains the roomId,
-     * start and end times. Returns nothing; will throw an exception on error.
+     * start and end times, and optionally a reservationId. Returns nothing; will throw an exception on error.
      */
-    public void createSchedule(String roomId, LocalDateTime start, LocalDateTime end) {
+    public void createSchedule(String roomId, LocalDateTime start, LocalDateTime end, Long reservationId) {
         Map<String, Object> body = new HashMap<>();
         body.put("roomId", roomId);
         body.put("startDateTime", start.format(ISO_FORMATTER));
         body.put("endDateTime", end.format(ISO_FORMATTER));
+        if (reservationId != null) {
+            body.put("reservationId", reservationId);
+        }
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body);
         restTemplate.postForEntity(baseUrl + "/schedules", entity, Void.class);
     }

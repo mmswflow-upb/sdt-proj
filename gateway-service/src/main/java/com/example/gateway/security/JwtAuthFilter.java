@@ -1,55 +1,80 @@
 package com.example.gateway.security;
 
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 
-import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 
 /**
- * Filter that extracts a JWT from the Authorization header and sets up the Spring Security context
- * for the gateway. If the token is invalid or missing, the filter simply delegates to the next
- * filter without authenticating the request. The principal is set to the user id and the only
- * authority corresponds to the user's role prefixed with ROLE_.
+ * Global filter that extracts a JWT from the Authorization header and sets up the Spring Security
+ * context for the gateway. This is a reactive filter that works with Spring Cloud Gateway's
+ * WebFlux-based architecture. If the token is invalid or missing, the filter allows the request
+ * to proceed and lets Spring Security's authorization rules handle the rejection.
  */
 @Component
-public class JwtAuthFilter extends OncePerRequestFilter {
+public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     private final JwtUtil jwtUtil;
+    
+    private static final List<String> EXCLUDED_PATHS = List.of("/api/auth/", "/actuator/", "/error");
 
     public JwtAuthFilter(JwtUtil jwtUtil) {
         this.jwtUtil = jwtUtil;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
-        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        ServerHttpRequest request = exchange.getRequest();
+        String path = request.getPath().value();
+        
+        // Skip authentication for excluded paths
+        if (EXCLUDED_PATHS.stream().anyMatch(path::startsWith)) {
+            return chain.filter(exchange);
+        }
+
+        String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
+            
             if (jwtUtil.validateToken(token)) {
                 String userId = jwtUtil.getUserId(token);
                 String role = jwtUtil.getRole(token);
+                
                 // Spring Security expects roles to be prefixed with ROLE_
                 String authority = role != null && role.startsWith("ROLE_") ? role : "ROLE_" + role;
-                UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                
+                UsernamePasswordAuthenticationToken authenticationToken = 
+                    new UsernamePasswordAuthenticationToken(
                         userId,
                         null,
                         Collections.singleton(new SimpleGrantedAuthority(authority))
-                );
-                authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                    );
+                
+                // Set the authentication in reactive context
+                return chain.filter(exchange)
+                    .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authenticationToken));
             }
         }
-        filterChain.doFilter(request, response);
+        
+        // No valid token - let it proceed and Spring Security will handle authorization
+        return chain.filter(exchange);
+    }
+
+    @Override
+    public int getOrder() {
+        // Run this filter before the NettyRoutingFilter
+        return -100;
     }
 }

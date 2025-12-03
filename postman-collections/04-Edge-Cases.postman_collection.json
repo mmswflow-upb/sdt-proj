@@ -1,0 +1,276 @@
+{
+	"info": {
+		"name": "Edge Cases and Error Handling",
+		"description": "Tests error scenarios - double booking, invalid data, conflicts, locked rooms",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080/api",
+			"type": "string"
+		},
+		{
+			"key": "student_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "admin_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "room_id",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Double Booking Attempt",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Double booking rejected (409)', function() {",
+							"    pm.response.to.have.status(409);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{student_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"roomId\": \"{{room_id}}\",\n  \"startDateTime\": \"2025-12-10T10:00:00\",\n  \"endDateTime\": \"2025-12-10T12:00:00\",\n  \"attendees\": 10\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/reservations",
+					"host": ["{{base_url}}"],
+					"path": ["reservations"]
+				}
+			}
+		},
+		{
+			"name": "2. Invalid Time Range (End Before Start)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Invalid time range rejected (400)', function() {",
+							"    pm.response.to.have.status(400);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{student_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"roomId\": \"{{room_id}}\",\n  \"startDateTime\": \"2025-12-10T14:00:00\",\n  \"endDateTime\": \"2025-12-10T12:00:00\",\n  \"attendees\": 10\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/reservations",
+					"host": ["{{base_url}}"],
+					"path": ["reservations"]
+				}
+			}
+		},
+		{
+			"name": "3. Past Time Reservation",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Past time reservation rejected (400)', function() {",
+							"    pm.response.to.have.status(400);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{student_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"roomId\": \"{{room_id}}\",\n  \"startDateTime\": \"2020-01-01T10:00:00\",\n  \"endDateTime\": \"2020-01-01T12:00:00\",\n  \"attendees\": 10\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/reservations",
+					"host": ["{{base_url}}"],
+					"path": ["reservations"]
+				}
+			}
+		},
+		{
+			"name": "4. Non-existent Room",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Non-existent room rejected (404)', function() {",
+							"    pm.response.to.have.status(404);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{student_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"roomId\": \"NONEXISTENT_ROOM_99999\",\n  \"startDateTime\": \"2025-12-15T10:00:00\",\n  \"endDateTime\": \"2025-12-15T12:00:00\",\n  \"attendees\": 10\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/reservations",
+					"host": ["{{base_url}}"],
+					"path": ["reservations"]
+				}
+			}
+		},
+		{
+			"name": "5. Unauthorized Access (No Token)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('No auth token rejected (401)', function() {",
+							"    pm.response.to.have.status(401);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/reservations",
+					"host": ["{{base_url}}"],
+					"path": ["reservations"]
+				}
+			}
+		},
+		{
+			"name": "6. Lock Room",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Room locked successfully', function() {",
+							"    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{admin_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/rooms/{{room_id}}/lock",
+					"host": ["{{base_url}}"],
+					"path": ["rooms", "{{room_id}}", "lock"]
+				}
+			}
+		},
+		{
+			"name": "7. Try to Reserve Locked Room",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Locked room reservation rejected (403 or 409)', function() {",
+							"    pm.expect([403, 409]).to.include(pm.response.code);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{student_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"roomId\": \"{{room_id}}\",\n  \"startDateTime\": \"2025-12-20T10:00:00\",\n  \"endDateTime\": \"2025-12-20T12:00:00\",\n  \"attendees\": 10\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/reservations",
+					"host": ["{{base_url}}"],
+					"path": ["reservations"]
+				}
+			}
+		}
+	]
+}

@@ -6,6 +6,6 @@ package com.example.facultyservice.entity;
  */
 public enum Role {
     STUDENT,
-    PROFESSOR,
+    FACULTY_ADMIN,
     ADMIN
 }

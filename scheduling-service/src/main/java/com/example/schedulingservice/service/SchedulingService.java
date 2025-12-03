@@ -38,9 +38,12 @@ public class SchedulingService {
         }
         List<RoomSchedule> schedules = scheduleRepository.findByRoomId(roomId);
         for (RoomSchedule sched : schedules) {
-            boolean overlaps = !(end.isBefore(sched.getStartDateTime()) || start.isAfter(sched.getEndDateTime()));
-            if (overlaps) {
-                return false;
+            // Intervals DON'T overlap if one ends before/at the start of the other
+            // For back-to-back: if new starts when old ends, they don't overlap
+            boolean noOverlap = end.isBefore(sched.getStartDateTime()) || end.isEqual(sched.getStartDateTime()) ||
+                               start.isAfter(sched.getEndDateTime()) || start.isEqual(sched.getEndDateTime());
+            if (!noOverlap) {
+                return false;  // Found an overlap
             }
         }
         return true;

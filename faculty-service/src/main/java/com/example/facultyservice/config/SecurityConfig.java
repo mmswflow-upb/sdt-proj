@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -46,24 +48,29 @@ public class SecurityConfig {
     }
 
     /**
-     * Provides a RestTemplate bean to be used for inter-service communication. In a production
-     * system consider using WebClient and configuring timeouts, retries, etc.
-     */
-    /**
-     * Provides a RestTemplate bean configured with a request interceptor that injects a
-     * JWT for internal service-to-service calls. The token is generated using the
-     * configured JwtUtil and carries a hard-coded subject of "internal-service" and
-     * the ADMIN role. This allows the faculty-service to call other microservices
-     * (scheduling-service and reservation-service) which secure their endpoints with
-     * role-based access control. The token has a TTL of 24 hours.
+     * Provides a RestTemplate bean configured with a request interceptor that forwards
+     * the user's JWT token for service-to-service calls. This preserves the original
+     * user context and permissions when calling other microservices (scheduling-service
+     * and reservation-service). For async operations or background tasks that don't have
+     * a user context, a service token can be generated separately.
      */
     @Bean
     public RestTemplate restTemplate(com.example.facultyservice.security.JwtUtil jwtUtil) {
         RestTemplate restTemplate = new RestTemplate();
-        // Interceptor to add Authorization header
+        // Interceptor to forward Authorization header from current request
         restTemplate.getInterceptors().add((request, body, execution) -> {
-            // Generate a token on each request. In a real system you might cache this.
-            String token = jwtUtil.generateToken("internal-service", "ADMIN", 24L * 60 * 60 * 1000);
+            // Try to get the token from the current security context
+            String token = null;
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getCredentials() instanceof String) {
+                token = (String) authentication.getCredentials();
+            }
+            
+            // If no user token available (e.g., async operation), generate a service token
+            if (token == null || token.isEmpty()) {
+                token = jwtUtil.generateToken("internal-service", "ADMIN", 24L * 60 * 60 * 1000);
+            }
+            
             request.getHeaders().add("Authorization", "Bearer " + token);
             return execution.execute(request, body);
         });

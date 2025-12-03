@@ -27,7 +27,7 @@ public class FacultyRoomController {
         this.roomService = roomService;
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @PostMapping
     public ResponseEntity<FacultyRoom> create(@Valid @RequestBody FacultyRoomDto dto) {
         try {
@@ -49,7 +49,7 @@ public class FacultyRoomController {
         return room.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<FacultyRoom> update(@PathVariable String id, @Valid @RequestBody FacultyRoomDto dto) {
         try {
@@ -60,7 +60,7 @@ public class FacultyRoomController {
         }
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable String id) {
         try {
@@ -71,7 +71,7 @@ public class FacultyRoomController {
         }
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @PostMapping("/{id}/lock")
     public ResponseEntity<Void> lock(@PathVariable String id) {
         try {
@@ -82,7 +82,7 @@ public class FacultyRoomController {
         }
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @PostMapping("/{id}/unlock")
     public ResponseEntity<Void> unlock(@PathVariable String id) {
         try {

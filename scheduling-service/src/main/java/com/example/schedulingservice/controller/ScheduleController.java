@@ -41,7 +41,7 @@ public class ScheduleController {
      * Creates a schedule entry. Called by the reservation-service to block a slot once the reservation
      * has been created. Optionally accepts a reservationId to aid in revocation.
      */
-    @PreAuthorize("hasRole('ADMIN') or hasRole('STUDENT') or hasRole('PROFESSOR')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('STUDENT') or hasRole('FACULTY_ADMIN')")
     @PostMapping("/schedules")
     public ResponseEntity<Void> createSchedule(@RequestBody Map<String, Object> body) {
         String roomId = (String) body.get("roomId");
@@ -72,8 +72,9 @@ public class ScheduleController {
 
     /**
      * Removes all schedules for a room. Called by the faculty-service when a room is deleted or locked.
+     * Admins and faculty admins can perform this operation.
      */
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @DeleteMapping("/schedules")
     public ResponseEntity<Void> deleteByRoom(@RequestParam String roomId) {
         schedulingService.removeSchedulesForRoom(roomId);
@@ -82,9 +83,9 @@ public class ScheduleController {
 
     /**
      * Removes schedules associated with a specific reservation. Called by the reservation-service
-     * when a reservation is revoked.
+     * when a reservation is revoked or cancelled. Admins, faculty admins, and students can perform this operation.
      */
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN') or hasRole('STUDENT')")
     @DeleteMapping("/schedules/{reservationId}")
     public ResponseEntity<Void> deleteByReservation(@PathVariable Long reservationId) {
         schedulingService.removeSchedulesForReservation(reservationId);

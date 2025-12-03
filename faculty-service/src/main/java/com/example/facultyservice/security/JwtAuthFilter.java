@@ -41,9 +41,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 String role = jwtUtil.getRole(token);
                 // Spring Security expects roles to be prefixed with ROLE_
                 String authority = role != null && role.startsWith("ROLE_") ? role : "ROLE_" + role;
+                // Store the token as credentials so it can be forwarded to other services
                 UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
                         userId,
-                        null,
+                        token,  // Store the JWT token here
                         Collections.singleton(new SimpleGrantedAuthority(authority))
                 );
                 authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

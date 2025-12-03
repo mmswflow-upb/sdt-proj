@@ -69,14 +69,14 @@ public class ReservationService {
         );
         // Persist the reservation
         reservation = repository.save(reservation);
-        // Create schedule entry in remote scheduling service
-        schedulingClient.createSchedule(dto.getRoomId(), start, end);
+        // Create schedule entry in remote scheduling service with reservation ID
+        schedulingClient.createSchedule(dto.getRoomId(), start, end, reservation.getId());
         return reservation;
     }
 
     /**
-     * Approves a pending reservation. Only callers with the ADMIN role should call this method. If the
-     * reservation does not exist or is not in the PENDING state, an exception is thrown.
+     * Approves a reservation. Only callers with the ADMIN or FACULTY_ADMIN role should call this method.
+     * Can be used to approve pending reservations or re-approve revoked reservations.
      *
      * @param id the identifier of the reservation to approve
      * @return the updated reservation
@@ -85,9 +85,11 @@ public class ReservationService {
     public Reservation approveReservation(Long id) {
         Reservation reservation = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Reservation not found: " + id));
-        if (reservation.getStatus() != ReservationStatus.PENDING) {
-            throw new IllegalStateException("Reservation is not pending");
+        // Cannot approve a cancelled reservation
+        if (reservation.getStatus() == ReservationStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot approve a cancelled reservation");
         }
+        // Allow approval from any status (PENDING, REVOKED, etc.) except CANCELLED
         reservation.setStatus(ReservationStatus.APPROVED);
         return repository.save(reservation);
     }
@@ -95,7 +97,7 @@ public class ReservationService {
     /**
      * Revokes an existing reservation, for example when the underlying room is removed or locked. A revoked
      * reservation is marked REVOKED and its associated schedule entry is removed from the scheduling-service.
-     * Only callers with the ADMIN role should call this method.
+     * Only callers with the ADMIN or FACULTY_ADMIN role should call this method.
      *
      * @param id the identifier of the reservation to revoke
      * @return the updated reservation
@@ -107,10 +109,61 @@ public class ReservationService {
         if (reservation.getStatus() == ReservationStatus.REVOKED) {
             return reservation;
         }
+        // Cannot revoke or change a cancelled reservation
+        if (reservation.getStatus() == ReservationStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot revoke a cancelled reservation");
+        }
         reservation.setStatus(ReservationStatus.REVOKED);
         repository.save(reservation);
-        // Remove schedule entry associated with this reservation
-        schedulingClient.removeScheduleForReservation(id);
+        // Try to remove schedule entry associated with this reservation
+        // If it fails (already deleted, or permission issue), log but don't fail the operation
+        try {
+            schedulingClient.removeScheduleForReservation(id);
+        } catch (Exception e) {
+            // Schedule might already be deleted or not exist, that's okay
+            System.err.println("Warning: Could not remove schedule for reservation " + id + ": " + e.getMessage());
+        }
+        return reservation;
+    }
+
+    /**
+     * Cancels a reservation by the student who created it. Once cancelled, the reservation cannot be
+     * approved, revoked, or modified in any way. The associated schedule entry is removed.
+     *
+     * @param id the identifier of the reservation to cancel
+     * @param userId the user attempting to cancel (must be the owner)
+     * @return the updated reservation
+     */
+    @Transactional
+    public Reservation cancelReservation(Long id, String userId) {
+        Reservation reservation = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Reservation not found: " + id));
+        
+        // Only the owner can cancel their reservation
+        if (!reservation.getUserId().equals(userId)) {
+            throw new IllegalStateException("You can only cancel your own reservations");
+        }
+        
+        // Cannot cancel if already cancelled
+        if (reservation.getStatus() == ReservationStatus.CANCELLED) {
+            return reservation;
+        }
+        
+        // Cannot cancel if already revoked
+        if (reservation.getStatus() == ReservationStatus.REVOKED) {
+            throw new IllegalStateException("Cannot cancel a revoked reservation");
+        }
+        
+        reservation.setStatus(ReservationStatus.CANCELLED);
+        repository.save(reservation);
+        
+        // Try to remove schedule entry
+        try {
+            schedulingClient.removeScheduleForReservation(id);
+        } catch (Exception e) {
+            System.err.println("Warning: Could not remove schedule for reservation " + id + ": " + e.getMessage());
+        }
+        
         return reservation;
     }
 
@@ -125,7 +178,11 @@ public class ReservationService {
         for (Reservation r : reservations) {
             if (r.getStatus() != ReservationStatus.REVOKED) {
                 r.setStatus(ReservationStatus.REVOKED);
-                schedulingClient.removeScheduleForReservation(r.getId());
+                try {
+                    schedulingClient.removeScheduleForReservation(r.getId());
+                } catch (Exception e) {
+                    System.err.println("Warning: Could not remove schedule for reservation " + r.getId() + ": " + e.getMessage());
+                }
                 repository.save(r);
             }
         }
@@ -138,6 +195,16 @@ public class ReservationService {
     @Transactional(readOnly = true)
     public List<Reservation> getReservationsForUser(String userId) {
         return repository.findByUserId(userId);
+    }
+
+    /**
+     * Retrieves all reservations for the authenticated user filtered by status.
+     */
+    @Transactional(readOnly = true)
+    public List<Reservation> getReservationsForUserByStatus(String userId, ReservationStatus status) {
+        return repository.findByUserId(userId).stream()
+                .filter(r -> r.getStatus() == status)
+                .collect(java.util.stream.Collectors.toList());
     }
 
     /**

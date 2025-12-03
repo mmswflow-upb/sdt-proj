@@ -29,7 +29,7 @@ public class RoomController {
         this.schedulingService = schedulingService;
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @PostMapping
     public ResponseEntity<Room> create(@Valid @RequestBody Room room) {
         if (roomRepository.existsById(room.getRoomId())) {
@@ -50,7 +50,7 @@ public class RoomController {
         return room.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<Room> update(@PathVariable String id, @Valid @RequestBody Room updated) {
         return roomRepository.findById(id).map(room -> {
@@ -64,9 +64,9 @@ public class RoomController {
 
     /**
      * Deletes a room. Also removes any schedules associated with it. Used by the faculty-service
-     * when an admin deletes a room. Only admins may perform this operation.
+     * when an admin or faculty admin deletes a room. Only admins and faculty admins may perform this operation.
      */
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Object> delete(@PathVariable String id) {
         return roomRepository.findById(id).map(room -> {
@@ -77,9 +77,9 @@ public class RoomController {
     }
 
     /**
-     * Locks a room, preventing new reservations and clearing existing schedules. Admin only.
+     * Locks a room, preventing new reservations and clearing existing schedules. Admin and faculty admin only.
      */
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @PostMapping("/{id}/lock")
     public ResponseEntity<Room> lock(@PathVariable String id) {
         try {
@@ -91,9 +91,9 @@ public class RoomController {
     }
 
     /**
-     * Unlocks a previously locked room. Admin only.
+     * Unlocks a previously locked room. Admin and faculty admin only.
      */
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @PostMapping("/{id}/unlock")
     public ResponseEntity<Room> unlock(@PathVariable String id) {
         try {
