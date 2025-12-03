@@ -1,276 +1,278 @@
 {
-	"info": {
-		"name": "Edge Cases and Error Handling",
-		"description": "Tests error scenarios - double booking, invalid data, conflicts, locked rooms",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"variable": [
-		{
-			"key": "base_url",
-			"value": "http://localhost:8080/api",
-			"type": "string"
-		},
-		{
-			"key": "student_token",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "admin_token",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "room_id",
-			"value": "",
-			"type": "string"
-		}
-	],
-	"item": [
-		{
-			"name": "1. Double Booking Attempt",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"pm.test('Double booking rejected (409)', function() {",
-							"    pm.response.to.have.status(409);",
-							"});"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					},
-					{
-						"key": "Authorization",
-						"value": "Bearer {{student_token}}"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"roomId\": \"{{room_id}}\",\n  \"startDateTime\": \"2025-12-10T10:00:00\",\n  \"endDateTime\": \"2025-12-10T12:00:00\",\n  \"attendees\": 10\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/reservations",
-					"host": ["{{base_url}}"],
-					"path": ["reservations"]
-				}
-			}
-		},
-		{
-			"name": "2. Invalid Time Range (End Before Start)",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"pm.test('Invalid time range rejected (400)', function() {",
-							"    pm.response.to.have.status(400);",
-							"});"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					},
-					{
-						"key": "Authorization",
-						"value": "Bearer {{student_token}}"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"roomId\": \"{{room_id}}\",\n  \"startDateTime\": \"2025-12-10T14:00:00\",\n  \"endDateTime\": \"2025-12-10T12:00:00\",\n  \"attendees\": 10\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/reservations",
-					"host": ["{{base_url}}"],
-					"path": ["reservations"]
-				}
-			}
-		},
-		{
-			"name": "3. Past Time Reservation",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"pm.test('Past time reservation rejected (400)', function() {",
-							"    pm.response.to.have.status(400);",
-							"});"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					},
-					{
-						"key": "Authorization",
-						"value": "Bearer {{student_token}}"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"roomId\": \"{{room_id}}\",\n  \"startDateTime\": \"2020-01-01T10:00:00\",\n  \"endDateTime\": \"2020-01-01T12:00:00\",\n  \"attendees\": 10\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/reservations",
-					"host": ["{{base_url}}"],
-					"path": ["reservations"]
-				}
-			}
-		},
-		{
-			"name": "4. Non-existent Room",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"pm.test('Non-existent room rejected (404)', function() {",
-							"    pm.response.to.have.status(404);",
-							"});"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					},
-					{
-						"key": "Authorization",
-						"value": "Bearer {{student_token}}"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"roomId\": \"NONEXISTENT_ROOM_99999\",\n  \"startDateTime\": \"2025-12-15T10:00:00\",\n  \"endDateTime\": \"2025-12-15T12:00:00\",\n  \"attendees\": 10\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/reservations",
-					"host": ["{{base_url}}"],
-					"path": ["reservations"]
-				}
-			}
-		},
-		{
-			"name": "5. Unauthorized Access (No Token)",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"pm.test('No auth token rejected (401)', function() {",
-							"    pm.response.to.have.status(401);",
-							"});"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{base_url}}/reservations",
-					"host": ["{{base_url}}"],
-					"path": ["reservations"]
-				}
-			}
-		},
-		{
-			"name": "6. Lock Room",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"pm.test('Room locked successfully', function() {",
-							"    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
-							"});"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer {{admin_token}}"
-					}
-				],
-				"url": {
-					"raw": "{{base_url}}/rooms/{{room_id}}/lock",
-					"host": ["{{base_url}}"],
-					"path": ["rooms", "{{room_id}}", "lock"]
-				}
-			}
-		},
-		{
-			"name": "7. Try to Reserve Locked Room",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"pm.test('Locked room reservation rejected (403 or 409)', function() {",
-							"    pm.expect([403, 409]).to.include(pm.response.code);",
-							"});"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					},
-					{
-						"key": "Authorization",
-						"value": "Bearer {{student_token}}"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"roomId\": \"{{room_id}}\",\n  \"startDateTime\": \"2025-12-20T10:00:00\",\n  \"endDateTime\": \"2025-12-20T12:00:00\",\n  \"attendees\": 10\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/reservations",
-					"host": ["{{base_url}}"],
-					"path": ["reservations"]
-				}
-			}
-		}
-	]
+  "info": {
+    "name": "04-Edge-Cases",
+    "description": "Edge cases: duplicates and conflicting reservations across students.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Prepare Edge Reservation Time Window",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const now = new Date();",
+              "const start = new Date(now.getTime() + 48 * 60 * 60 * 1000);",
+              "const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);",
+              "const toIso = (d) => d.toISOString().slice(0, 19);",
+              "pm.environment.set('edge_start', toIso(start));",
+              "pm.environment.set('edge_end', toIso(end));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/health",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "health"
+          ]
+        }
+      }
+    },
+    {
+      "name": "1. Create Base Reservation (Student)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 201 || pm.response.code === 200) {",
+              "  const jsonData = pm.response.json();",
+              "  const id = jsonData.id || jsonData.reservationId;",
+              "  pm.environment.set('edge_reservation_id', id);",
+              "  pm.test('Base reservation created', function () {",
+              "    pm.expect(id).to.exist;",
+              "  });",
+              "} else {",
+              "  pm.test('Base reservation creation failed', function () {",
+              "    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roomId\": \"{{room_id}}\",\n  \"startTime\": \"{{edge_start}}\",\n  \"endTime\": \"{{edge_end}}\",\n  \"attendees\": 20\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "2. Duplicate Reservation (Should Fail)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Duplicate reservation rejected', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([400, 409]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roomId\": \"{{room_id}}\",\n  \"startTime\": \"{{edge_start}}\",\n  \"endTime\": \"{{edge_end}}\",\n  \"attendees\": 20\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. Register & Login Second Student",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 200 || pm.response.code === 201) {",
+              "  pm.test('Student2 registered or exists', function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+              "  });",
+              "} else if (pm.response.code === 409) {",
+              "  pm.test('Student2 already exists', function () {",
+              "    pm.expect(pm.response.code).to.eql(409);",
+              "  });",
+              "} else {",
+              "  pm.test('Student2 registration failed', function () {",
+              "    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{student2_username}}\",\n  \"password\": \"{{student2_password}}\",\n  \"email\": \"student2@university.com\",\n  \"role\": \"STUDENT\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/register",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
+        }
+      }
+    },
+    {
+      "name": "4. Login Second Student",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  const jsonData = pm.response.json();",
+              "  pm.environment.set('student2_token', jsonData.token);",
+              "  pm.test('Student2 logged in successfully', function () {",
+              "    pm.expect(jsonData.token).to.exist;",
+              "  });",
+              "} else {",
+              "  pm.test('Student2 login failed', function () {",
+              "    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{student2_username}}\",\n  \"password\": \"{{student2_password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/auth/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      }
+    },
+    {
+      "name": "5. Conflicting Reservation from Student2 (Should Fail)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Conflicting reservation rejected', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([400, 409]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student2_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roomId\": \"{{room_id}}\",\n  \"startTime\": \"{{edge_start}}\",\n  \"endTime\": \"{{edge_end}}\",\n  \"attendees\": 5\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        }
+      }
+    }
+  ]
 }

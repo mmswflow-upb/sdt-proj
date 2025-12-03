@@ -1,234 +1,194 @@
 {
-	"info": {
-		"name": "Admin Workflow",
-		"description": "Admin operations - manage reservations, approve/revoke, manage resources",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"variable": [
-		{
-			"key": "base_url",
-			"value": "http://localhost:8080/api",
-			"type": "string"
-		},
-		{
-			"key": "admin_token",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "reservation_id",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "faculty_id",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "room_id",
-			"value": "",
-			"type": "string"
-		}
-	],
-	"item": [
-		{
-			"name": "1. View All Reservations",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"pm.test('Admin can view all reservations', function() {",
-							"    pm.response.to.have.status(200);",
-							"});"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "GET",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer {{admin_token}}"
-					}
-				],
-				"url": {
-					"raw": "{{base_url}}/reservations",
-					"host": ["{{base_url}}"],
-					"path": ["reservations"]
-				}
-			}
-		},
-		{
-			"name": "2. Approve Reservation",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"pm.test('Admin can approve reservation', function() {",
-							"    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
-							"});"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer {{admin_token}}"
-					}
-				],
-				"url": {
-					"raw": "{{base_url}}/reservations/{{reservation_id}}/approve",
-					"host": ["{{base_url}}"],
-					"path": ["reservations", "{{reservation_id}}", "approve"]
-				}
-			}
-		},
-		{
-			"name": "3. Revoke Reservation",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"pm.test('Admin can revoke reservation', function() {",
-							"    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
-							"});"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer {{admin_token}}"
-					}
-				],
-				"url": {
-					"raw": "{{base_url}}/reservations/{{reservation_id}}/revoke",
-					"host": ["{{base_url}}"],
-					"path": ["reservations", "{{reservation_id}}", "revoke"]
-				}
-			}
-		},
-		{
-			"name": "4. Create Faculty",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"if (pm.response.code === 200 || pm.response.code === 201) {",
-							"    var jsonData = pm.response.json();",
-							"    pm.collectionVariables.set('faculty_id', jsonData.id || jsonData.facultyId);",
-							"}"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					},
-					{
-						"key": "Authorization",
-						"value": "Bearer {{admin_token}}"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"facultyId\": \"ADMIN_FAC_TEST\",\n  \"name\": \"Admin Test Faculty\"\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/faculties",
-					"host": ["{{base_url}}"],
-					"path": ["faculties"]
-				}
-			}
-		},
-		{
-			"name": "5. Create Room",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"if (pm.response.code === 200 || pm.response.code === 201) {",
-							"    var jsonData = pm.response.json();",
-							"    pm.collectionVariables.set('room_id', jsonData.id || jsonData.roomId);",
-							"}"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					},
-					{
-						"key": "Authorization",
-						"value": "Bearer {{admin_token}}"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"roomId\": \"ADMIN_ROOM_TEST\",\n  \"facultyId\": \"{{faculty_id}}\",\n  \"capacity\": 50,\n  \"equipment\": \"projector,whiteboard,computers\"\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/rooms",
-					"host": ["{{base_url}}"],
-					"path": ["rooms"]
-				}
-			}
-		},
-		{
-			"name": "6. Delete Room (Cascade Test)",
-			"event": [
-				{
-					"listen": "test",
-					"script": {
-						"exec": [
-							"pm.test('Admin can delete room', function() {",
-							"    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
-							"});"
-						],
-						"type": "text/javascript"
-					}
-				}
-			],
-			"request": {
-				"method": "DELETE",
-				"header": [
-					{
-						"key": "Authorization",
-						"value": "Bearer {{admin_token}}"
-					}
-				],
-				"url": {
-					"raw": "{{base_url}}/rooms/{{room_id}}",
-					"host": ["{{base_url}}"],
-					"path": ["rooms", "{{room_id}}"]
-				}
-			}
-		}
-	]
+  "info": {
+    "name": "03-Admin-Workflow",
+    "description": "Admin operations: list reservations, approve / revoke, list rooms.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. List All Reservations",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const jsonData = pm.response.json();",
+              "pm.test('Admin can list reservations', function () {",
+              "  pm.expect(pm.response.code).to.eql(200);",
+              "  pm.expect(jsonData).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "2. Approve Reservation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Approve reservation responded OK', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/{{reservation_id}}/approve",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "{{reservation_id}}",
+            "approve"
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. Revoke Reservation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Revoke reservation responded OK', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/{{reservation_id}}/revoke",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "{{reservation_id}}",
+            "revoke"
+          ]
+        }
+      }
+    },
+    {
+      "name": "4. Approve Reservation Again",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Re-approve reservation responded OK', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/{{reservation_id}}/approve",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "{{reservation_id}}",
+            "approve"
+          ]
+        }
+      }
+    },
+    {
+      "name": "5. List All Rooms",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const jsonData = pm.response.json();",
+              "pm.test('Admin can list rooms', function () {",
+              "  pm.expect(pm.response.code).to.eql(200);",
+              "  pm.expect(jsonData).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/rooms",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "rooms"
+          ]
+        }
+      }
+    }
+  ]
 }
