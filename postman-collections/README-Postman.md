@@ -41,13 +41,13 @@
   - Admin creates and lists rooms
   - Faculty admin creates, lists, and **deletes** a room in their faculty
 
-- `4-Edge-Cases.postman_collection.json`: 
+- `4-Edge-Cases.postman_collection.json`:
   - Duplicate booking by same student (should fail)
   - Conflicting booking by another student (should fail)
   - Overlapping reservation (should fail)
   - Back-to-back reservation (should succeed)
   - Unauthorized revoke by another student
-  - Cancellation flow: create → approve → cancel → immutable re-approve → rebook → other student cannot cancel
+  - Cancellation flow: create -> approve -> cancel -> immutable re-approve -> rebook -> other student cannot cancel
   - Room deletion cascade: create room, create & approve reservation, delete room, check room 404,
     check schedule, and verify availability behaves correctly
 
@@ -66,7 +66,7 @@
 ## Recommended Run Order
 
 1. Import the **environment** file and all 5 collections into Postman.
-2. Select the *Campus Reservation Local* environment.
+2. Select the *SDT-Campus-Reservation* environment.
 3. Run the collections in this order:
 
    1. `1-Setup`
