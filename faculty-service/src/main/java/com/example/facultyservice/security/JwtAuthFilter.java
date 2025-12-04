@@ -1,5 +1,4 @@
 package com.example.facultyservice.security;
-
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,25 +10,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
 import java.io.IOException;
 import java.util.Collections;
-
-/**
- * Filter that extracts a JWT from the Authorization header and sets up the Spring Security context.
- * If the token is invalid or missing, the filter simply delegates to the next filter without
- * authenticating the request. The principal is set to the user id and the only authority
- * corresponds to the user's role prefixed with ROLE_.
- */
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
-
     private final JwtUtil jwtUtil;
-
     public JwtAuthFilter(JwtUtil jwtUtil) {
         this.jwtUtil = jwtUtil;
     }
-
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -39,9 +27,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             if (jwtUtil.validateToken(token)) {
                 String userId = jwtUtil.getUserId(token);
                 String role = jwtUtil.getRole(token);
-                // Spring Security expects roles to be prefixed with ROLE_
                 String authority = role != null && role.startsWith("ROLE_") ? role : "ROLE_" + role;
-                // Store the token as credentials so it can be forwarded to other services
                 UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
                         userId,
                         token,  // Store the JWT token here

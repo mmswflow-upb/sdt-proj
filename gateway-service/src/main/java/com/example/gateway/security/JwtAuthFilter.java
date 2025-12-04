@@ -1,5 +1,4 @@
 package com.example.gateway.security;
-
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -12,69 +11,43 @@ import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
-
 import java.util.Collections;
 import java.util.List;
-
-/**
- * Global filter that extracts a JWT from the Authorization header and sets up the Spring Security
- * context for the gateway. This is a reactive filter that works with Spring Cloud Gateway's
- * WebFlux-based architecture. If the token is invalid or missing, the filter allows the request
- * to proceed and lets Spring Security's authorization rules handle the rejection.
- */
 @Component
 public class JwtAuthFilter implements GlobalFilter, Ordered {
-
     private final JwtUtil jwtUtil;
-    
     private static final List<String> EXCLUDED_PATHS = List.of("/api/auth/", "/actuator/", "/error");
-
     public JwtAuthFilter(JwtUtil jwtUtil) {
         this.jwtUtil = jwtUtil;
     }
-
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getPath().value();
-        
-        // Skip authentication for excluded paths
         if (EXCLUDED_PATHS.stream().anyMatch(path::startsWith)) {
             return chain.filter(exchange);
         }
-
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
-            
             if (jwtUtil.validateToken(token)) {
                 String userId = jwtUtil.getUserId(token);
                 String role = jwtUtil.getRole(token);
-                
-                // Spring Security expects roles to be prefixed with ROLE_
                 String authority = role != null && role.startsWith("ROLE_") ? role : "ROLE_" + role;
-                
                 UsernamePasswordAuthenticationToken authenticationToken = 
                     new UsernamePasswordAuthenticationToken(
                         userId,
                         null,
                         Collections.singleton(new SimpleGrantedAuthority(authority))
                     );
-                
-                // Set the authentication in reactive context
                 return chain.filter(exchange)
                     .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authenticationToken));
             }
         }
-        
-        // No valid token - let it proceed and Spring Security will handle authorization
         return chain.filter(exchange);
     }
-
     @Override
     public int getOrder() {
-        // Run this filter before the NettyRoutingFilter
         return -100;
     }
 }

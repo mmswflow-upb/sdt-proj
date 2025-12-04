@@ -1,5 +1,4 @@
 package com.example.reservationservice.controller;
-
 import com.example.reservationservice.dto.ReservationRequestDto;
 import com.example.reservationservice.dto.ReservationResponseDto;
 import com.example.reservationservice.entity.Reservation;
@@ -11,28 +10,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 import java.util.stream.Collectors;
-
-/**
- * REST controller exposing operations for reservation management. All endpoints require a valid JWT in the
- * Authorization header. The authenticated user id and role are extracted using SecurityUtils.
- */
 @RestController
 @RequestMapping("/reservations")
 public class ReservationController {
-
     private final ReservationService reservationService;
-
     public ReservationController(ReservationService reservationService) {
         this.reservationService = reservationService;
     }
-
-    /**
-     * Creates a new reservation for the authenticated user. Validates the input and delegates to the
-     * application service. Returns the created reservation in the response.
-     */
     @PostMapping
     public ResponseEntity<ReservationResponseDto> create(@Valid @RequestBody ReservationRequestDto dto) {
         String userId = SecurityUtils.getCurrentUserId();
@@ -42,11 +28,6 @@ public class ReservationController {
         Reservation reservation = reservationService.createReservation(dto, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ReservationResponseDto.fromEntity(reservation));
     }
-
-    /**
-     * Approves an existing reservation. Only users with the ADMIN or FACULTY_ADMIN role are allowed to call this endpoint.
-     * Cannot approve cancelled reservations.
-     */
     @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @PostMapping("/{id}/approve")
     public ResponseEntity<?> approve(@PathVariable Long id) {
@@ -57,12 +38,6 @@ public class ReservationController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
-
-    /**
-     * Revokes an existing reservation. Only users with the ADMIN or FACULTY_ADMIN role are allowed. Used when rooms are
-     * removed or locked via the faculty-service.
-     * Cannot revoke cancelled reservations.
-     */
     @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @PostMapping("/{id}/revoke")
     public ResponseEntity<?> revoke(@PathVariable Long id) {
@@ -73,11 +48,6 @@ public class ReservationController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
-
-    /**
-     * Cancels a reservation. Only the student who created the reservation can cancel it.
-     * Once cancelled, the reservation cannot be modified by anyone.
-     */
     @PostMapping("/{id}/cancel")
     public ResponseEntity<ReservationResponseDto> cancel(@PathVariable Long id) {
         String userId = SecurityUtils.getCurrentUserId();
@@ -91,11 +61,6 @@ public class ReservationController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
     }
-
-    /**
-     * Returns the reservations belonging to the currently authenticated user.
-     * Optionally filter by status using ?status=PENDING, ?status=APPROVED, etc.
-     */
     @GetMapping("/me")
     public ResponseEntity<List<ReservationResponseDto>> myReservations(
             @RequestParam(required = false) ReservationStatus status) {
@@ -110,10 +75,6 @@ public class ReservationController {
                 .map(ReservationResponseDto::fromEntity)
                 .collect(Collectors.toList()));
     }
-
-    /**
-     * Returns all reservations in the system. Only admins may access this endpoint.
-     */
     @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @GetMapping
     public ResponseEntity<List<ReservationResponseDto>> all() {
@@ -122,10 +83,6 @@ public class ReservationController {
                 .map(ReservationResponseDto::fromEntity)
                 .collect(Collectors.toList()));
     }
-
-    /**
-     * Returns a single reservation. Admins and faculty admins may view any reservation; users may only view their own.
-     */
     @GetMapping("/{id}")
     public ResponseEntity<ReservationResponseDto> get(@PathVariable Long id) {
         String userId = SecurityUtils.getCurrentUserId();
@@ -139,14 +96,6 @@ public class ReservationController {
                     return ResponseEntity.ok(ReservationResponseDto.fromEntity(reservation));
                 }).orElseGet(() -> new ResponseEntity<ReservationResponseDto>(HttpStatus.NOT_FOUND));
     }
-
-    /**
-     * Revokes all reservations for a specific room. This endpoint is intended to be used by
-     * the faculty-service when an admin removes or locks a room. Only admins and faculty admins may invoke it.
-     *
-     * @param roomId identifier of the room whose reservations should be revoked
-     * @return a list of revoked reservations
-     */
     @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @DeleteMapping("/by-room/{roomId}")
     public ResponseEntity<List<ReservationResponseDto>> revokeByRoom(@PathVariable String roomId) {

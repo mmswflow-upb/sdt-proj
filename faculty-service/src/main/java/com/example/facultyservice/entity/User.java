@@ -1,11 +1,5 @@
 package com.example.facultyservice.entity;
-
 import jakarta.persistence.*;
-
-/**
- * Entity representing a system user. Users are authenticated via username/password and issued JWTs
- * that include their id and role. Each user belongs to a faculty.
- */
 @Entity
 @Table(name = "users")
 public class User {
@@ -20,9 +14,7 @@ public class User {
     @Column(nullable = false)
     private Role role;
     private String facultyId;
-
     public User() {}
-
     public User(String username, String password, Role role, String facultyId) {
         this.username = username;
         this.password = password;

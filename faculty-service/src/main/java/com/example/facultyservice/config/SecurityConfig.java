@@ -1,5 +1,4 @@
 package com.example.facultyservice.config;
-
 import com.example.facultyservice.security.JwtAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,64 +12,37 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.client.RestTemplate;
-
-/**
- * Spring Security configuration for the faculty-service. Configures stateless JWT-based
- * authentication and plugs in our custom filter. All endpoints require authentication except
- * those under /auth. Method-level security is enabled so that controllers and services can
- * restrict access based on roles using {@link org.springframework.security.access.prepost.PreAuthorize}.
- */
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthFilter jwtAuthFilter) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                    // permit unauthenticated access to auth endpoints and the error page
-                    .requestMatchers("/auth/**", "/error").permitAll()
+                    .requestMatchers("/auth/**").permitAll()
                     .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
-
-    /**
-     * Password encoder used for hashing user passwords. We use BCrypt which is a strong adaptive
-     * hashing algorithm.
-     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-
-    /**
-     * Provides a RestTemplate bean configured with a request interceptor that forwards
-     * the user's JWT token for service-to-service calls. This preserves the original
-     * user context and permissions when calling other microservices (scheduling-service
-     * and reservation-service). For async operations or background tasks that don't have
-     * a user context, a service token can be generated separately.
-     */
     @Bean
     public RestTemplate restTemplate(com.example.facultyservice.security.JwtUtil jwtUtil) {
         RestTemplate restTemplate = new RestTemplate();
-        // Interceptor to forward Authorization header from current request
         restTemplate.getInterceptors().add((request, body, execution) -> {
-            // Try to get the token from the current security context
             String token = null;
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication != null && authentication.getCredentials() instanceof String) {
                 token = (String) authentication.getCredentials();
             }
-            
-            // If no user token available (e.g., async operation), generate a service token
             if (token == null || token.isEmpty()) {
                 token = jwtUtil.generateToken("internal-service", "ADMIN", 24L * 60 * 60 * 1000);
             }
-            
             request.getHeaders().add("Authorization", "Bearer " + token);
             return execution.execute(request, body);
         });

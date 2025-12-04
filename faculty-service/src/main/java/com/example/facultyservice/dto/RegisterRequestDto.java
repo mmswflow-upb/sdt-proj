@@ -1,13 +1,6 @@
 package com.example.facultyservice.dto;
-
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-
-/**
- * DTO used to create a new user account. Guests may omit the role field in which case
- * the default role STUDENT will be used. The facultyId associates the user with a particular
- * faculty.
- */
 public class RegisterRequestDto {
     @NotBlank
     private String username;
@@ -16,9 +9,7 @@ public class RegisterRequestDto {
     private String role;
     @NotBlank
     private String facultyId;
-
     public RegisterRequestDto() {}
-
     public RegisterRequestDto(String username, String password, String role, String facultyId) {
         this.username = username;
         this.password = password;

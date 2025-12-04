@@ -1,5 +1,4 @@
 package com.example.facultyservice.controller;
-
 import com.example.facultyservice.dto.FacultyPolicyDto;
 import com.example.facultyservice.entity.FacultyPolicy;
 import com.example.facultyservice.service.FacultyPolicyService;
@@ -8,31 +7,21 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 import java.util.Optional;
-
-/**
- * REST controller exposing CRUD operations for faculty policies. Only administrators may create,
- * update or delete policies. All authenticated users may read policies.
- */
 @RestController
 @RequestMapping("/policies")
 public class FacultyPolicyController {
-
     private final FacultyPolicyService policyService;
-
     public FacultyPolicyController(FacultyPolicyService policyService) {
         this.policyService = policyService;
     }
-
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FACULTY_ADMIN')")
     @PostMapping
     public ResponseEntity<FacultyPolicy> create(@Valid @RequestBody FacultyPolicyDto dto) {
         FacultyPolicy policy = policyService.createPolicy(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(policy);
     }
-
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<FacultyPolicy> update(@PathVariable Long id, @Valid @RequestBody FacultyPolicyDto dto) {
@@ -43,18 +32,15 @@ public class FacultyPolicyController {
             return ResponseEntity.notFound().build();
         }
     }
-
     @GetMapping
     public ResponseEntity<List<FacultyPolicy>> all() {
         return ResponseEntity.ok(policyService.getAllPolicies());
     }
-
     @GetMapping("/{id}")
     public ResponseEntity<FacultyPolicy> get(@PathVariable Long id) {
         Optional<FacultyPolicy> policy = policyService.getPolicy(id);
         return policy.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
-
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {

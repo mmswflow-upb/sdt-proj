@@ -1,74 +1,100 @@
-# Postman Collections for Campus Reservation API (Rewritten)
+# Postman Collections for Campus Reservation API (Full Coverage)
 
-This folder contains **fresh Postman collections** that mirror the main K6 workflows,
-but are rebuilt from scratch to use **only environment variables** (no collection variables).
+This folder contains **updated Postman collections** aligned with the K6 workflows.
+All dynamic data flows via **environment variables** (no collection-wide variables).
 
 ## Files
 
 - `Campus-Reservation-Local.postman_environment.json`  
   Shared environment with:
-  - `base_url` (e.g. `http://localhost:8080`)
-  - credentials for admin, student, and faculty admin
-  - runtime values such as `admin_token`, `student_token`, `faculty_admin_token`,
-    `faculty_id`, `room_id`, `reservation_id`, etc.
+  - Base configuration: `base_url`, `admin_username`, `student_username`, `faculty_admin_username`, `student2_username`, etc.
+  - Tokens: `admin_token`, `student_token`, `faculty_admin_token`, `student2_token`
+  - Core IDs: `faculty_id`, `faculty_external_id`, `policy_id`, `room_id_1`, `room_id_2`, `room_id_3`
+  - Workflow data: `main_reservation_id`, concurrent reservation IDs, edge / cancel / deletion reservation IDs.
 
-- `01-Setup.postman_collection.json`  
-  Run this **first**. It:
-  1. Logs in as admin
-  2. Registers + logs in a student
-  3. Registers + logs in a faculty admin
-  4. Creates a test faculty
-  5. Creates a test room under that faculty  
-  All IDs and tokens are stored in **environment variables**.
+- `1-Setup.postman_collection.json`  
+  Mirrors `common-setup.js` and `auth-setup.js`:
+  1. Login admin
+  2. Create test faculty
+  3–5. Create three rooms under that faculty
+  6. Create a faculty policy
+  7–8. Register & login Student1
+  9–10. Register & login Faculty Admin
+  11–12. Register & login Student2
 
-- `02-Student-Workflow.postman_collection.json`  
-  Core student journey:
-  1. Prepare a reservation time window (tomorrow, +2h)
-  2. Check room availability
-  3. Create a reservation
-  4. Get student's own reservations
-  5. Cancel the created reservation
+- `2-Student-Workflow.postman_collection.json`  
+  Mirrors `student-reservations.js` and core parts of `student-workflow.js`:
+  - Computes a reservation window (48h ahead, 2h duration)
+  - Checks availability (`GET /api/availability?roomId&from&to`)
+  - Creates a main reservation (`POST /api/reservations` with `startDateTime` / `endDateTime` / `attendees`)
+  - Lists all own reservations (`GET /api/reservations/me`)
+  - Lists pending reservations (`GET /api/reservations/me?status=PENDING`)
+  - Creates three concurrent reservations (one per room)
+  - Gets a reservation by ID (`GET /api/reservations/{id}`) as student
 
-- `03-Admin-Workflow.postman_collection.json`  
-  Basic admin operations:
-  1. List all reservations
-  2. Approve a reservation
-  3. Revoke the same reservation
-  4. Approve it again
-  5. List all rooms
+- `3-Admin-Workflow.postman_collection.json`  
+  Mirrors `admin-workflow.js`, `reservation-approvals.js`, `reservation-status-changes.js`,
+  `resource-management.js`, and parts of `room-deletion.js` / `faculty-admin-workflow.js`:
+  - Admin lists reservations
+  - Admin approves, revokes, and re-approves the main reservation
+  - Student views revoked reservations (`status=REVOKED`)
+  - Faculty admin and admin approve concurrent reservations
+  - Admin updates the faculty policy (`PUT /api/policies/{id}`)
+  - Admin creates an extra faculty
+  - Admin creates and lists rooms
+  - Faculty admin creates, lists, and **deletes** a room in their faculty
 
-- `04-Edge-Cases.postman_collection.json`  
-  Selected edge cases:
-  1. Create a base reservation for the student
-  2. Attempt a **duplicate** reservation for the same slot (should fail)
-  3. Register & login a second student
-  4. Have the second student attempt a **conflicting** reservation (should fail)
+- `4-Edge-Cases.postman_collection.json`  
+  Mirrors `edge-cases-workflow.js`, `reservation-cancellations.js`, and key parts of `room-deletion.js`:
+  - Duplicate booking by same student (should fail)
+  - Conflicting booking by another student (should fail)
+  - Overlapping reservation (should fail)
+  - Back-to-back reservation (should succeed)
+  - Unauthorized revoke by another student
+  - Cancellation flow: create → approve → cancel → immutable re-approve → rebook → other student cannot cancel
+  - Room deletion cascade: create room, create & approve reservation, delete room, check room 404,
+    check schedule, and verify availability behaves correctly
 
-- `Authorization-Tests.postman_collection.json`  
-  Negative authorization tests:
-  1. Student tries to approve a reservation (should be blocked)
-  2. Student tries to create a room (should be blocked)
-  3. Student tries to create a faculty (should be blocked)
-  4. Faculty admin tries to create a faculty (should be blocked)
+- `5-Authorization-Tests.postman_collection.json`  
+  Mirrors `authorization-tests.js` and negative parts of `student-workflow.js`:
+  - Student cannot:
+    - Approve reservations
+    - Revoke reservations
+    - Create rooms
+    - Delete rooms
+    - Create faculties
+    - Delete faculties
+  - Faculty admin cannot:
+    - Create faculties
+    - Delete faculties
 
-## Usage
+## Recommended Run Order
 
-1. Import the **environment** file into Postman:
-   - `Campus-Reservation-Local.postman_environment.json`
+1. Import the **environment** file and all 5 collections into Postman.
+2. Select the *Campus Reservation Local* environment.
+3. Run the collections in this order:
 
-2. Import the collections you need (or all of them).
+   1. `1-Setup`
+   2. `2-Student-Workflow`
+   3. `3-Admin-Workflow`
+   4. `4-Edge-Cases`
+   5. `5-Authorization-Tests`
 
-3. Select the *Campus Reservation Local* environment in the top-right corner of Postman.
+This ordering matches the `run-all-workflows.js` sequence:
+setup → auth setup → student reservations → approvals → status changes → cancellations → room deletion → authorization tests.
 
-4. Run the collections in this order:
+Every endpoint used in the K6 suite has a matching Postman request with the correct HTTP method,
+headers, and JSON structure:
+- `/api/auth/register`, `/api/auth/login`
+- `/api/faculties`, `/api/faculties/{id}`
+- `/api/rooms`, `/api/rooms/{id}`
+- `/api/policies`, `/api/policies/{id}`
+- `/api/availability?roomId&from&to`
+- `/api/reservations` (create)
+- `/api/reservations/me`, `/api/reservations/me?status=...`
+- `/api/reservations/{id}`, `/api/reservations/{id}/approve`, `/api/reservations/{id}/revoke`, `/api/reservations/{id}/cancel`
+- `/api/reservations` (admin list)
+- `/api/schedules/{id}`
 
-   1. `01-Setup`
-   2. `02-Student-Workflow` (creates a reservation and sets `reservation_id`)
-   3. `03-Admin-Workflow` (operates on `reservation_id`)
-   4. `04-Edge-Cases`
-   5. `Authorization-Tests`
-
-5. All dynamic data (tokens, IDs, times) flows through **environment variables** only.
-
-You can tweak usernames/passwords, base URL, and other inputs directly in the environment
-without touching the collections.
+All requests use **environment variables** only (no collection variables), and headers/bodies
+are shaped to match the K6 scripts.

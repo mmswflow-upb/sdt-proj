@@ -1,0 +1,656 @@
+{
+  "info": {
+    "name": "3-Admin-Workflow",
+    "description": "Admin & faculty admin workflows: approvals, status changes, policies, and resources.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. List All Reservations (Admin)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin can list reservations', function () {",
+              "  pm.expect(pm.response.code).to.eql(200);",
+              "  pm.expect(pm.response.json()).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "2. Approve Main Reservation (Admin)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin approve main reservation', function () {",
+              "  pm.expect(pm.response.code).to.be.within(200, 299);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/{{main_reservation_id}}/approve",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "{{main_reservation_id}}",
+            "approve"
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. Get Main Reservation (Admin)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin can get reservation by id', function () {",
+              "  pm.expect(pm.response.code).to.eql(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/{{main_reservation_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "{{main_reservation_id}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "4. Revoke Main Reservation (Admin)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin revoke main reservation', function () {",
+              "  pm.expect(pm.response.code).to.be.within(200, 299);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/{{main_reservation_id}}/revoke",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "{{main_reservation_id}}",
+            "revoke"
+          ]
+        }
+      }
+    },
+    {
+      "name": "5. Student Views Revoked Reservations",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Student can view revoked reservations', function () {",
+              "  pm.expect(pm.response.code).to.eql(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/me?status=REVOKED",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "me"
+          ],
+          "query": [
+            {
+              "key": "status",
+              "value": "REVOKED"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "6. Re-Approve Revoked Reservation (Admin)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin re-approve revoked reservation', function () {",
+              "  pm.expect(pm.response.code).to.be.within(200, 299);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/{{main_reservation_id}}/approve",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "{{main_reservation_id}}",
+            "approve"
+          ]
+        }
+      }
+    },
+    {
+      "name": "7. Faculty Admin Approves Concurrent Reservation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Faculty admin approve reservation', function () {",
+              "  pm.expect(pm.response.code).to.be.within(200, 299);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{faculty_admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/{{concurrent_reservation_room1_id}}/approve",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "{{concurrent_reservation_room1_id}}",
+            "approve"
+          ]
+        }
+      }
+    },
+    {
+      "name": "8. Admin Approves Another Concurrent Reservation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin approve concurrent reservation', function () {",
+              "  pm.expect(pm.response.code).to.be.within(200, 299);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/{{concurrent_reservation_room2_id}}/approve",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "{{concurrent_reservation_room2_id}}",
+            "approve"
+          ]
+        }
+      }
+    },
+    {
+      "name": "9. List All Reservations Again (Admin)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin can list reservations again', function () {",
+              "  pm.expect(pm.response.code).to.eql(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "10. Update Policy (Admin)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin can update policy', function () {",
+              "  pm.expect(pm.response.code).to.eql(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"facultyId\": \"{{faculty_id}}\",\n  \"maxDuration\": 360,\n  \"requireApproval\": true,\n  \"allowedRoles\": \"STUDENT,FACULTY_ADMIN\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/policies/{{policy_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "policies",
+            "{{policy_id}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "11. Admin Creates Extra Faculty",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const id = 'ADMIN_TEST_' + Date.now();",
+              "pm.environment.set('extra_faculty_id', id);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin created extra faculty', function () {",
+              "  pm.expect(pm.response.code).to.be.within(200, 299);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"facultyId\": \"{{extra_faculty_id}}\",\n  \"name\": \"Admin Created Faculty\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/faculties",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "faculties"
+          ]
+        }
+      }
+    },
+    {
+      "name": "12. Admin Creates Room in Base Faculty",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.environment.get('admin_room_id')) {",
+              "  const id = pm.environment.get('faculty_id') + '-ADMIN-ROOM-' + Date.now();",
+              "  pm.environment.set('admin_room_id', id);",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin created room in faculty', function () {",
+              "  pm.expect(pm.response.code).to.be.within(200, 299);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roomId\": \"{{admin_room_id}}\",\n  \"facultyId\": \"{{faculty_id}}\",\n  \"capacity\": 50,\n  \"equipment\": \"projector,whiteboard\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/rooms",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "rooms"
+          ]
+        }
+      }
+    },
+    {
+      "name": "13. List All Rooms (Admin)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin can list rooms', function () {",
+              "  pm.expect(pm.response.code).to.eql(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/rooms",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "rooms"
+          ]
+        }
+      }
+    },
+    {
+      "name": "14. Faculty Admin Creates Room",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (!pm.environment.get('faculty_admin_room_id')) {",
+              "  const id = pm.environment.get('faculty_id') + '-FADMIN-' + Date.now();",
+              "  pm.environment.set('faculty_admin_room_id', id);",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Faculty admin created room', function () {",
+              "  pm.expect(pm.response.code).to.be.within(200, 299);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{faculty_admin_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roomId\": \"{{faculty_admin_room_id}}\",\n  \"facultyId\": \"{{faculty_id}}\",\n  \"capacity\": 40,\n  \"equipment\": \"projector,computers\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/rooms",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "rooms"
+          ]
+        }
+      }
+    },
+    {
+      "name": "15. Faculty Admin Lists Rooms",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Faculty admin can list rooms', function () {",
+              "  pm.expect(pm.response.code).to.eql(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{faculty_admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/rooms",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "rooms"
+          ]
+        }
+      }
+    },
+    {
+      "name": "16. Faculty Admin Deletes Own Room",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Faculty admin can delete their room', function () {",
+              "  pm.expect(pm.response.code).to.be.within(200, 299);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{faculty_admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/rooms/{{faculty_admin_room_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "rooms",
+            "{{faculty_admin_room_id}}"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,13 +1,6 @@
 package com.example.facultyservice.dto;
-
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-
-/**
- * DTO representing a faculty policy. When creating a new policy the id may be null; when
- * updating, the id must be provided. The allowedRoles field is a comma separated list of role
- * names.
- */
 public class FacultyPolicyDto {
     private Long id;
     @NotBlank
@@ -17,9 +10,7 @@ public class FacultyPolicyDto {
     @NotNull
     private Boolean requireApproval;
     private String allowedRoles;
-
     public FacultyPolicyDto() {}
-
     public FacultyPolicyDto(Long id, String facultyId, Integer maxDuration, Boolean requireApproval, String allowedRoles) {
         this.id = id;
         this.facultyId = facultyId;

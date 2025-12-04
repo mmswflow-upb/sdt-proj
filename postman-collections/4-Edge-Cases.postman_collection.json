@@ -1,0 +1,942 @@
+{
+  "info": {
+    "name": "4-Edge-Cases",
+    "description": "Edge cases: conflicts, overlaps, cancellations, and room deletion cascade.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Create Base Reservation (Student1)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const now = new Date();",
+              "const start = new Date(now.getTime() + 48 * 60 * 60 * 1000);",
+              "const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);",
+              "const toIso = (d) => d.toISOString().slice(0, 19);",
+              "pm.environment.set('edge_start', toIso(start));",
+              "pm.environment.set('edge_end', toIso(end));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const jsonData = pm.response.json();",
+              "  const id = jsonData.id || jsonData.reservationId;",
+              "  pm.environment.set('edge_base_reservation_id', id);",
+              "  pm.test('Base reservation created', function () {",
+              "    pm.expect(id).to.exist;",
+              "  });",
+              "} else {",
+              "  pm.test('Base reservation creation failed', function () {",
+              "    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roomId\": \"{{room_id_1}}\",\n  \"startDateTime\": \"{{edge_start}}\",\n  \"endDateTime\": \"{{edge_end}}\",\n  \"attendees\": 10\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "2. Duplicate Reservation (Should Fail)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Duplicate reservation rejected', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([400,409]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roomId\": \"{{room_id_1}}\",\n  \"startDateTime\": \"{{edge_start}}\",\n  \"endDateTime\": \"{{edge_end}}\",\n  \"attendees\": 10\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. Conflicting Reservation from Student2 (Should Fail)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Conflicting reservation rejected', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([400,409]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student2_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roomId\": \"{{room_id_1}}\",\n  \"startDateTime\": \"{{edge_start}}\",\n  \"endDateTime\": \"{{edge_end}}\",\n  \"attendees\": 8\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "4. Overlapping Reservation (Should Fail)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const start = new Date(pm.environment.get('edge_start') + 'Z');",
+              "const end = new Date(pm.environment.get('edge_end') + 'Z');",
+              "const overlapStart = new Date(start.getTime() + 30 * 60 * 1000);",
+              "const overlapEnd = new Date(end.getTime() + 30 * 60 * 1000);",
+              "const toIso = (d) => d.toISOString().slice(0,19);",
+              "pm.environment.set('edge_overlap_start', toIso(overlapStart));",
+              "pm.environment.set('edge_overlap_end', toIso(overlapEnd));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Overlapping reservation rejected', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([400,409]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roomId\": \"{{room_id_1}}\",\n  \"startDateTime\": \"{{edge_overlap_start}}\",\n  \"endDateTime\": \"{{edge_overlap_end}}\",\n  \"attendees\": 6\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "5. Back-to-back Reservation (Should Succeed)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const end = new Date(pm.environment.get('edge_end') + 'Z');",
+              "const backStart = end;",
+              "const backEnd = new Date(end.getTime() + 60 * 60 * 1000);",
+              "const toIso = (d) => d.toISOString().slice(0,19);",
+              "pm.environment.set('edge_back_start', toIso(backStart));",
+              "pm.environment.set('edge_back_end', toIso(backEnd));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const jsonData = pm.response.json();",
+              "  const id = jsonData.id || jsonData.reservationId;",
+              "  pm.environment.set('edge_back_reservation_id', id);",
+              "  pm.test('Back-to-back reservation created', function () {",
+              "    pm.expect(id).to.exist;",
+              "  });",
+              "} else {",
+              "  pm.test('Back-to-back reservation failed', function () {",
+              "    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roomId\": \"{{room_id_1}}\",\n  \"startDateTime\": \"{{edge_back_start}}\",\n  \"endDateTime\": \"{{edge_back_end}}\",\n  \"attendees\": 10\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "6. Student2 Unauthorized Revoke (Should Fail)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Unauthorized revoke rejected', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([401,403]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student2_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/{{edge_base_reservation_id}}/revoke",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "{{edge_base_reservation_id}}",
+            "revoke"
+          ]
+        }
+      }
+    },
+    {
+      "name": "7. Prepare Cancel Test Window",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const now = new Date();",
+              "const start = new Date(now.getTime() + 144 * 60 * 60 * 1000);",
+              "const end = new Date(start.getTime() + 60 * 60 * 1000);",
+              "const toIso = (d) => d.toISOString().slice(0,19);",
+              "pm.environment.set('cancel_start', toIso(start));",
+              "pm.environment.set('cancel_end', toIso(end));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/me",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "me"
+          ]
+        }
+      }
+    },
+    {
+      "name": "8. Create Cancel Test Reservation (Student1)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const jsonData = pm.response.json();",
+              "  const id = jsonData.id || jsonData.reservationId;",
+              "  pm.environment.set('cancel_reservation_id', id);",
+              "  pm.test('Cancel test reservation created', function () {",
+              "    pm.expect(id).to.exist;",
+              "  });",
+              "} else {",
+              "  pm.test('Cancel test reservation failed', function () {",
+              "    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roomId\": \"{{room_id_1}}\",\n  \"startDateTime\": \"{{cancel_start}}\",\n  \"endDateTime\": \"{{cancel_end}}\",\n  \"attendees\": 15\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "9. Admin Approves Cancel Test Reservation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin approves cancel test reservation', function () {",
+              "  pm.expect(pm.response.code).to.eql(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/{{cancel_reservation_id}}/approve",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "{{cancel_reservation_id}}",
+            "approve"
+          ]
+        }
+      }
+    },
+    {
+      "name": "10. Student Cancels Own Reservation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Student cancels own reservation', function () {",
+              "  pm.expect(pm.response.code).to.be.within(200, 299);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/{{cancel_reservation_id}}/cancel",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "{{cancel_reservation_id}}",
+            "cancel"
+          ]
+        }
+      }
+    },
+    {
+      "name": "11. Admin Cannot Approve Cancelled Reservation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin cannot approve cancelled reservation', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([400,409]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/{{cancel_reservation_id}}/approve",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "{{cancel_reservation_id}}",
+            "approve"
+          ]
+        }
+      }
+    },
+    {
+      "name": "12. Student Rebooks Same Slot",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const jsonData = pm.response.json();",
+              "  const id = jsonData.id || jsonData.reservationId;",
+              "  pm.environment.set('rebooked_reservation_id', id);",
+              "  pm.test('Rebooked reservation created with new ID', function () {",
+              "    const oldId = pm.environment.get('cancel_reservation_id');",
+              "    pm.expect(id).to.exist;",
+              "    pm.expect(id).to.not.eql(oldId);",
+              "  });",
+              "} else {",
+              "  pm.test('Rebooking failed', function () {",
+              "    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roomId\": \"{{room_id_1}}\",\n  \"startDateTime\": \"{{cancel_start}}\",\n  \"endDateTime\": \"{{cancel_end}}\",\n  \"attendees\": 15\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "13. Student2 Cannot Cancel Other Student Reservation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Student2 cannot cancel other student reservation', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([403,404]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student2_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/{{rebooked_reservation_id}}/cancel",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "{{rebooked_reservation_id}}",
+            "cancel"
+          ]
+        }
+      }
+    },
+    {
+      "name": "14. Admin Creates Room for Deletion",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const id = pm.environment.get('faculty_id') + '-DELETE-' + Date.now();",
+              "pm.environment.set('delete_room_id', id);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin created deletion test room', function () {",
+              "  pm.expect(pm.response.code).to.be.within(200, 299);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roomId\": \"{{delete_room_id}}\",\n  \"facultyId\": \"{{faculty_id}}\",\n  \"capacity\": 20,\n  \"equipment\": \"whiteboard\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/rooms",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "rooms"
+          ]
+        }
+      }
+    },
+    {
+      "name": "15. Student Creates Reservation in Delete Room",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const now = new Date();",
+              "const start = new Date(now.getTime() + 24 * 60 * 60 * 1000);",
+              "const end = new Date(start.getTime() + 60 * 60 * 1000);",
+              "const toIso = (d) => d.toISOString().slice(0,19);",
+              "pm.environment.set('delete_res_start', toIso(start));",
+              "pm.environment.set('delete_res_end', toIso(end));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code >= 200 && pm.response.code < 300) {",
+              "  const jsonData = pm.response.json();",
+              "  const id = jsonData.id || jsonData.reservationId;",
+              "  pm.environment.set('delete_reservation_id', id);",
+              "  pm.test('Reservation created in delete room', function () {",
+              "    pm.expect(id).to.exist;",
+              "  });",
+              "} else {",
+              "  pm.test('Failed to create reservation in delete room', function () {",
+              "    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roomId\": \"{{delete_room_id}}\",\n  \"startDateTime\": \"{{delete_res_start}}\",\n  \"endDateTime\": \"{{delete_res_end}}\",\n  \"attendees\": 5\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/reservations",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "16. Admin Approves Delete Room Reservation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin approves delete-room reservation', function () {",
+              "  pm.expect(pm.response.code).to.eql(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/reservations/{{delete_reservation_id}}/approve",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "reservations",
+            "{{delete_reservation_id}}",
+            "approve"
+          ]
+        }
+      }
+    },
+    {
+      "name": "17. Admin Deletes Room",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin deletes room', function () {",
+              "  pm.expect(pm.response.code).to.be.within(200, 299);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/rooms/{{delete_room_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "rooms",
+            "{{delete_room_id}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "18. Get Deleted Room (Should 404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Deleted room returns 404', function () {",
+              "  pm.expect(pm.response.code).to.eql(404);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/rooms/{{delete_room_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "rooms",
+            "{{delete_room_id}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "19. Get Schedule for Deleted Reservation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Schedule deleted or null', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200,404]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/schedules/{{delete_reservation_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "schedules",
+            "{{delete_reservation_id}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "20. Availability for Deleted Room",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const now = new Date();",
+              "const start = new Date(now.getTime() + 24 * 60 * 60 * 1000);",
+              "const end = new Date(start.getTime() + 60 * 60 * 1000);",
+              "const toIso = (d) => d.toISOString().slice(0,19);",
+              "pm.environment.set('deleted_room_av_start', toIso(start));",
+              "pm.environment.set('deleted_room_av_end', toIso(end));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Availability handles deleted room gracefully', function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200,404]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/availability?roomId={{delete_room_id}}&from={{deleted_room_av_start}}&to={{deleted_room_av_end}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "availability"
+          ],
+          "query": [
+            {
+              "key": "roomId",
+              "value": "{{delete_room_id}}"
+            },
+            {
+              "key": "from",
+              "value": "{{deleted_room_av_start}}"
+            },
+            {
+              "key": "to",
+              "value": "{{deleted_room_av_end}}"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
