@@ -3,9 +3,9 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://reservation-db:5432/reservation
-    username: reservation
-    password: reservation
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://reservation-db:5432/reservation}
+    username: ${SPRING_DATASOURCE_USERNAME:reservation}
+    password: ${SPRING_DATASOURCE_PASSWORD:reservation}
   jpa:
     hibernate:
       ddl-auto: update
@@ -20,4 +20,4 @@ security:
 
 scheduling:
   service:
-    base-url: http://scheduling-service:8080
+    base-url: ${SCHEDULING_SERVICE_BASE_URL:http://scheduling-service:8080}

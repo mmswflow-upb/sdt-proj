@@ -3,9 +3,9 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://scheduling-db:5432/scheduling
-    username: scheduling
-    password: scheduling
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://scheduling-db:5432/scheduling}
+    username: ${SPRING_DATASOURCE_USERNAME:scheduling}
+    password: ${SPRING_DATASOURCE_PASSWORD:scheduling}
   jpa:
     hibernate:
       ddl-auto: update
