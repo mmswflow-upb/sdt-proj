@@ -50,6 +50,7 @@
   - Cancellation flow: create -> approve -> cancel -> immutable re-approve -> rebook -> other student cannot cancel
   - Room deletion cascade: create room, create & approve reservation, delete room, check room 404,
     check schedule, and verify availability behaves correctly
+  - Reservations cannot be made for the past
 
 - `5-Authorization-Tests.postman_collection.json`:
   - Student cannot:
