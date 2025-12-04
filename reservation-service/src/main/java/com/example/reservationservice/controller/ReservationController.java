@@ -20,13 +20,19 @@ public class ReservationController {
         this.reservationService = reservationService;
     }
     @PostMapping
-    public ResponseEntity<ReservationResponseDto> create(@Valid @RequestBody ReservationRequestDto dto) {
+    public ResponseEntity<?> create(@Valid @RequestBody ReservationRequestDto dto) {
         String userId = SecurityUtils.getCurrentUserId();
         if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        Reservation reservation = reservationService.createReservation(dto, userId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ReservationResponseDto.fromEntity(reservation));
+        try {
+            Reservation reservation = reservationService.createReservation(dto, userId);
+            return ResponseEntity.status(HttpStatus.CREATED).body(ReservationResponseDto.fromEntity(reservation));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        }
     }
     @PreAuthorize("hasRole('ADMIN') or hasRole('FACULTY_ADMIN')")
     @PostMapping("/{id}/approve")

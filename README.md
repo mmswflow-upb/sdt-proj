@@ -40,7 +40,7 @@ Also, the JWTs of users are further passed with inter-service requests, so reque
 Clone the repo and navigate to the project directory, then run:
 
 ```bash
-docker compose up --build
+docker compose up -d --build
 ```
 
 This command will:

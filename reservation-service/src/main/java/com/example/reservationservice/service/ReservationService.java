@@ -24,6 +24,10 @@ public class ReservationService {
         if (end.isBefore(start) || end.isEqual(start)) {
             throw new IllegalArgumentException("End time must be after start time");
         }
+        List<Reservation> duplicates = repository.findDuplicateReservation(userId, dto.getRoomId(), start, end);
+        if (!duplicates.isEmpty()) {
+            throw new IllegalStateException("You already have a reservation for this room at this time");
+        }
         boolean available = schedulingClient.isAvailable(dto.getRoomId(), start, end);
         if (!available) {
             throw new IllegalStateException("Requested time slot is not available for room " + dto.getRoomId());
