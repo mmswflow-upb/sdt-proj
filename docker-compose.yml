@@ -1,7 +1,3 @@
-# This compose file orchestrates the three microservices (reservation-service, scheduling-service,
-# faculty-service) and their respective PostgreSQL databases. Each service is built from the
-# local Dockerfile within its directory. The services communicate using the hostnames defined
-# here (e.g. reservation-service calls scheduling-service via http://scheduling-service:8080).
 name: sdt-campus-reservations
 
 services:

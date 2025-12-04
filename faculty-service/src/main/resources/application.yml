@@ -1,11 +1,8 @@
 server:
-  # Faculty-service listens on its own port
   port: 8080
 
 spring:
   datasource:
-    # JDBC URL points at the Postgres instance started by docker-compose. When running
-    # outside of Docker these values can be overridden via environment variables.
     url: jdbc:postgresql://faculty-db:5432/faculty
     username: faculty
     password: faculty
@@ -16,18 +13,14 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-# Secret used for signing and verifying JWT tokens. Provided via environment variable.
 security:
   jwt:
     secret: ${SECURITY_JWT_SECRET:mysecretkeymysecretkeymysecretkey}
 
-# Default admin credentials (used on first startup)
 admin:
   username: ${ADMIN_USERNAME:admin}
   password: ${ADMIN_PASSWORD:admin}
 
-# Base URLs of the other microservices. These are used by the faculty-service to
-# synchronize rooms and reservations with the scheduling-service and reservation-service.
 scheduling:
   service:
     base-url: http://scheduling-service:8080

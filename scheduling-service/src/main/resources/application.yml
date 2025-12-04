@@ -13,7 +13,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-# Shared secret used for signing and verifying JWTs. Provided via environment variable.
 security:
   jwt:
     secret: ${SECURITY_JWT_SECRET:mysecretkeymysecretkeymysecretkey}
