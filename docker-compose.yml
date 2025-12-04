@@ -34,6 +34,9 @@ services:
   # reservation-service
   reservation-service:
     build: ./reservation-service
+    depends_on:
+      - reservation-db
+      - scheduling-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://reservation-db:5432/${RESERVATION_DB_NAME:-reservation}
       SPRING_DATASOURCE_USERNAME: ${RESERVATION_DB_USER:-reservation}
@@ -46,6 +49,8 @@ services:
   # scheduling-service
   scheduling-service:
     build: ./scheduling-service
+    depends_on:
+      - scheduling-db
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://scheduling-db:5432/${SCHEDULING_DB_NAME:-scheduling}
       SPRING_DATASOURCE_USERNAME: ${SCHEDULING_DB_USER:-scheduling}
@@ -57,6 +62,10 @@ services:
   # faculty-service
   faculty-service:
     build: ./faculty-service
+    depends_on:
+      - faculty-db
+      - scheduling-service
+      - reservation-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://faculty-db:5432/${FACULTY_DB_NAME:-faculty}
       SPRING_DATASOURCE_USERNAME: ${FACULTY_DB_USER:-faculty}
@@ -72,6 +81,10 @@ services:
   # gateway-service (API Gateway)
   gateway-service:
     build: ./gateway-service
+    depends_on:
+      - faculty-service
+      - reservation-service
+      - scheduling-service
     environment:
       SECURITY_JWT_SECRET: ${SECURITY_JWT_SECRET:-mysecretkeymysecretkeymysecretkey}
     ports:
