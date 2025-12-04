@@ -6,13 +6,13 @@ A microservices-based room reservation system built for milestone 4.
 
 The system is made up of four main parts:
 
-**Gateway Service** - The front door for everything. Routes requests to the right service and handles authentication. Runs on port 8080.
+- **Gateway Service** - The front door for everything. Routes requests to the right service and handles authentication. Runs on port 8080.
 
-**Faculty Service** - Takes care of user accounts (students, professors, admins), faculties, rooms, and policies. Also handles login/registration and generates JWT tokens. When rooms are deleted, it communicates with the other services to cascade those changes. Runs on port 8083.
+- **Faculty Service** - Takes care of user accounts (students, professors, admins), faculties, rooms, and policies. Also handles login/registration and generates JWT tokens. When rooms are deleted, it communicates with the other services to cascade those changes. Runs on port 8083.
 
-**Reservation Service** - Manages room reservations. Students create them, admins approve or revoke them. Before creating a reservation, it talks to the scheduling service to verify room availability. Runs on port 8081.
+- **Reservation Service** - Manages room reservations. Students create them, admins approve or revoke them. Before creating a reservation, it talks to the scheduling service to verify room availability. Runs on port 8081.
 
-**Scheduling Service** - Keeps track of room schedules and availability. Makes sure nobody double-books a room. Other services call it to check availability and manage schedules. Runs on port 8082.
+- **Scheduling Service** - Keeps track of room schedules and availability. Makes sure nobody double-books a room. Other services call it to check availability and manage schedules. Runs on port 8082.
 
 Each service has its own PostgreSQL database, so they're completely independent. They communicate with each other using REST APIs - for example, when you try to reserve a room, the reservation service calls the scheduling service to check if it's free.
 
@@ -25,6 +25,8 @@ The services talk to each other in a few key scenarios:
 - **Faculty -> Reservation**: When deleting a room, revokes associated reservations
 
 All communication happens via HTTP REST calls, and each service validates JWT tokens independently for security.
+
+Also, the JWTs of users are further passed with inter-service requests, so requests can be traced back to users.
 
 ## Setup and Running
 
@@ -85,13 +87,13 @@ Navigate to the `postman-collections` folder in this repository. You'll find:
 
 Run the collections **in this exact order**:
 
-1. **1-Setup** - Creates the foundation (admin login, faculty, rooms, policy, test users)
-2. **2-Student-Workflow** - Tests student reservation flows (create, view, concurrent bookings)
-3. **3-Admin-Workflow** - Tests admin operations (approve, revoke, room management)
-4. **4-Edge-Cases** - Tests conflict resolution (duplicate bookings, overlapping times, cancellations)
-5. **5-Authorization-Tests** - Verifies role-based access control
+1. **Setup** - Creates the foundation (admin login, faculty, rooms, policy, test users)
+2. **Student-Workflow** - Tests student reservation flows (create, view, concurrent bookings)
+3. **Admin-Workflow** - Tests admin operations (approve, revoke, room management)
+4. **Edge-Cases** - Tests conflict resolution (duplicate bookings, overlapping times, cancellations)
+5. **Authorization-Tests** - Verifies role-based access control
 
-For detailed information about each collection's structure and workflow, [see here](postman-collections/README-Postman.md`).
+For detailed information about each collection's structure and workflow, [see here](postman-collections/README-Postman.md).
 
 ### Stopping the Services
 
