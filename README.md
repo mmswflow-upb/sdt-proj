@@ -85,7 +85,7 @@ Navigate to the `postman-collections` folder in this repository. You'll find:
 
 **Running the Collections:**
 
-Run the collections **in this exact order**:
+Hover over the names of each collection, click on the 3 dots, select `Run`, then click on the `Run-CollectionName` button, please run them in this order:
 
 1. **Setup** - Creates the foundation (admin login, faculty, rooms, policy, test users)
 2. **Student-Workflow** - Tests student reservation flows (create, view, concurrent bookings)
@@ -93,7 +93,7 @@ Run the collections **in this exact order**:
 4. **Edge-Cases** - Tests conflict resolution (duplicate bookings, overlapping times, cancellations)
 5. **Authorization-Tests** - Verifies role-based access control
 
-For detailed information about each collection's structure and workflow, [see here](postman-collections/README-Postman.md).
+For detailed information about each collection's structure and workflow, [see here](postman-collections/README.md).
 
 ### Stopping the Services
 
