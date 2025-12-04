@@ -20,7 +20,12 @@ public class ScheduleController {
             @RequestParam @NotBlank String roomId,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
-        return ResponseEntity.ok(schedulingService.isAvailable(roomId, from, to));
+        try {
+            boolean available = schedulingService.isAvailable(roomId, from, to);
+            return ResponseEntity.ok(available);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
     }
     @PreAuthorize("hasRole('ADMIN') or hasRole('STUDENT') or hasRole('FACULTY_ADMIN')")
     @PostMapping("/schedules")

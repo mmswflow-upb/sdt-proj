@@ -41,7 +41,7 @@ Clone the repo and navigate to the project directory, add a `.env` file using th
 
 ### Step 2: Run Services
 
-In the terminal, run:
+On Windows/Mac, make sure you have started **Docker Desktop**, then run in the terminal:
 
 ```bash
 docker compose up -d --build

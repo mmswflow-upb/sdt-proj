@@ -21,6 +21,10 @@ public class ReservationService {
     public Reservation createReservation(ReservationRequestDto dto, String userId) {
         LocalDateTime start = dto.getStartDateTime();
         LocalDateTime end = dto.getEndDateTime();
+        LocalDateTime now = LocalDateTime.now();
+        if (start.isBefore(now)) {
+            throw new IllegalArgumentException("Cannot create reservations in the past");
+        }
         if (end.isBefore(start) || end.isEqual(start)) {
             throw new IllegalArgumentException("End time must be after start time");
         }

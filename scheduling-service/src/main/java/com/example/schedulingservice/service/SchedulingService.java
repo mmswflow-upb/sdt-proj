@@ -19,14 +19,14 @@ public class SchedulingService {
     public boolean isAvailable(String roomId, LocalDateTime start, LocalDateTime end) {
         Room room = roomRepository.findById(roomId).orElse(null);
         if (room == null) {
-            return false;
+            throw new IllegalArgumentException("Room not found: " + roomId);
         }
         List<RoomSchedule> schedules = scheduleRepository.findByRoomId(roomId);
         for (RoomSchedule sched : schedules) {
             boolean noOverlap = end.isBefore(sched.getStartDateTime()) || end.isEqual(sched.getStartDateTime()) ||
                                start.isAfter(sched.getEndDateTime()) || start.isEqual(sched.getEndDateTime());
             if (!noOverlap) {
-                return false;  // Found an overlap
+                return false;
             }
         }
         return true;
