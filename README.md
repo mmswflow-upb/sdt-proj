@@ -35,9 +35,13 @@ Also, the JWTs of users are further passed with inter-service requests, so reque
 - **Docker Desktop** (Windows/Mac) or **Docker + Docker Compose** (Linux)
 - **Postman** (for testing the API)
 
-### Step 1: Start the Services
+### Step 1: Clone repo
 
-Clone the repo and navigate to the project directory, then run:
+Clone the repo and navigate to the project directory, add a `.env` file using the [example](.env.example)
+
+### Step 2: Run Services
+
+In the terminal, run:
 
 ```bash
 docker compose up -d --build
