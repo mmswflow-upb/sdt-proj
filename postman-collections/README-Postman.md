@@ -1,7 +1,4 @@
-# Postman Collections for Campus Reservation API (Full Coverage)
-
-This folder contains **updated Postman collections** aligned with the K6 workflows.
-All dynamic data flows via **environment variables** (no collection-wide variables).
+# Postman Collections for Campus Reservation API
 
 ## Files
 
@@ -12,18 +9,20 @@ All dynamic data flows via **environment variables** (no collection-wide variabl
   - Core IDs: `faculty_id`, `faculty_external_id`, `policy_id`, `room_id_1`, `room_id_2`, `room_id_3`
   - Workflow data: `main_reservation_id`, concurrent reservation IDs, edge / cancel / deletion reservation IDs.
 
-- `1-Setup.postman_collection.json`  
-  Mirrors `common-setup.js` and `auth-setup.js`:
+  - All dynamic data flows via **environment variables**.
+
+  We used pre-request and post-request scripts (`JS` + `Postman Library`) to change these env vars so that requests adapted their headers and bodies according to the responses coming from the API, but also to add checks for HTTP status codes and to generate timestamps that were used in naming rooms, faculties, etc (for uniqueness).
+
+- `1-Setup.postman_collection.json`:
   1. Login admin
   2. Create test faculty
-  3–5. Create three rooms under that faculty
-  6. Create a faculty policy
-  7–8. Register & login Student1
-  9–10. Register & login Faculty Admin
-  11–12. Register & login Student2
+  3. Steps 3–5: Create three rooms under that faculty
+  4. Step 6: Create a faculty policy
+  5. Steps 7–8: Register & login Student1
+  6. Steps 9–10: Register & login Faculty Admin
+  7. Steps 11–12: Register & login Student2
 
-- `2-Student-Workflow.postman_collection.json`  
-  Mirrors `student-reservations.js` and core parts of `student-workflow.js`:
+- `2-Student-Workflow.postman_collection.json`:
   - Computes a reservation window (48h ahead, 2h duration)
   - Checks availability (`GET /api/availability?roomId&from&to`)
   - Creates a main reservation (`POST /api/reservations` with `startDateTime` / `endDateTime` / `attendees`)
@@ -32,9 +31,7 @@ All dynamic data flows via **environment variables** (no collection-wide variabl
   - Creates three concurrent reservations (one per room)
   - Gets a reservation by ID (`GET /api/reservations/{id}`) as student
 
-- `3-Admin-Workflow.postman_collection.json`  
-  Mirrors `admin-workflow.js`, `reservation-approvals.js`, `reservation-status-changes.js`,
-  `resource-management.js`, and parts of `room-deletion.js` / `faculty-admin-workflow.js`:
+- `3-Admin-Workflow.postman_collection.json`:
   - Admin lists reservations
   - Admin approves, revokes, and re-approves the main reservation
   - Student views revoked reservations (`status=REVOKED`)
@@ -44,8 +41,7 @@ All dynamic data flows via **environment variables** (no collection-wide variabl
   - Admin creates and lists rooms
   - Faculty admin creates, lists, and **deletes** a room in their faculty
 
-- `4-Edge-Cases.postman_collection.json`  
-  Mirrors `edge-cases-workflow.js`, `reservation-cancellations.js`, and key parts of `room-deletion.js`:
+- `4-Edge-Cases.postman_collection.json`: 
   - Duplicate booking by same student (should fail)
   - Conflicting booking by another student (should fail)
   - Overlapping reservation (should fail)
@@ -55,8 +51,7 @@ All dynamic data flows via **environment variables** (no collection-wide variabl
   - Room deletion cascade: create room, create & approve reservation, delete room, check room 404,
     check schedule, and verify availability behaves correctly
 
-- `5-Authorization-Tests.postman_collection.json`  
-  Mirrors `authorization-tests.js` and negative parts of `student-workflow.js`:
+- `5-Authorization-Tests.postman_collection.json`:
   - Student cannot:
     - Approve reservations
     - Revoke reservations
@@ -80,11 +75,8 @@ All dynamic data flows via **environment variables** (no collection-wide variabl
    4. `4-Edge-Cases`
    5. `5-Authorization-Tests`
 
-This ordering matches the `run-all-workflows.js` sequence:
-setup → auth setup → student reservations → approvals → status changes → cancellations → room deletion → authorization tests.
+## Every endpoint used
 
-Every endpoint used in the K6 suite has a matching Postman request with the correct HTTP method,
-headers, and JSON structure:
 - `/api/auth/register`, `/api/auth/login`
 - `/api/faculties`, `/api/faculties/{id}`
 - `/api/rooms`, `/api/rooms/{id}`
@@ -95,6 +87,3 @@ headers, and JSON structure:
 - `/api/reservations/{id}`, `/api/reservations/{id}/approve`, `/api/reservations/{id}/revoke`, `/api/reservations/{id}/cancel`
 - `/api/reservations` (admin list)
 - `/api/schedules/{id}`
-
-All requests use **environment variables** only (no collection variables), and headers/bodies
-are shaped to match the K6 scripts.
