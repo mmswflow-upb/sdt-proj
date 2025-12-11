@@ -1,4 +1,6 @@
 package com.example.reservationservice.config;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -17,7 +19,9 @@ public class RabbitMQConfig {
     }
     @Bean
     public MessageConverter jsonMessageConverter() {
-        return new Jackson2JsonMessageConverter();
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        return new Jackson2JsonMessageConverter(objectMapper);
     }
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {

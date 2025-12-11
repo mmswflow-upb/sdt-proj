@@ -40,14 +40,23 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # reservation-service
   reservation-service:
     build: ./reservation-service
     depends_on:
-      - reservation-db
-      - scheduling-service
-      - rabbitmq
+      reservation-db:
+        condition: service_started
+      scheduling-service:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://reservation-db:5432/${RESERVATION_DB_NAME:-reservation}
       SPRING_DATASOURCE_USERNAME: ${RESERVATION_DB_USER:-reservation}
@@ -113,7 +122,8 @@ services:
   notification-service:
     build: ./notification-service
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
     environment:
       RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
       RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}

@@ -48,6 +48,12 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
+        <!-- Jackson JSR310 for Java 8 Date/Time types -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
