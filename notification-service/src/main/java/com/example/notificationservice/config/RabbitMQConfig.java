@@ -20,6 +20,8 @@ public class RabbitMQConfig {
     private String reservationCancelledQueue;
     @Value("${rabbitmq.queue.reservation-revoked}")
     private String reservationRevokedQueue;
+    @Value("${rabbitmq.queue.reservation-approved}")
+    private String reservationApprovedQueue;
     @Value("${rabbitmq.exchange.reservations}")
     private String reservationsExchange;
     @Bean
@@ -33,6 +35,10 @@ public class RabbitMQConfig {
     @Bean
     public Queue reservationRevokedQueue() {
         return new Queue(reservationRevokedQueue, true);
+    }
+    @Bean
+    public Queue reservationApprovedQueue() {
+        return new Queue(reservationApprovedQueue, true);
     }
     @Bean
     public TopicExchange reservationsExchange() {
@@ -58,6 +64,13 @@ public class RabbitMQConfig {
                 .bind(reservationRevokedQueue())
                 .to(reservationsExchange())
                 .with("reservation.revoked");
+    }
+    @Bean
+    public Binding reservationApprovedBinding() {
+        return BindingBuilder
+                .bind(reservationApprovedQueue())
+                .to(reservationsExchange())
+                .with("reservation.approved");
     }
     @Bean
     public MessageConverter jsonMessageConverter() {

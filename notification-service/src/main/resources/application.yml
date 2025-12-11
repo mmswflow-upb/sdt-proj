@@ -12,6 +12,7 @@ rabbitmq:
     reservation-created: ${RABBITMQ_QUEUE_RESERVATION_CREATED:reservation.created}
     reservation-cancelled: ${RABBITMQ_QUEUE_RESERVATION_CANCELLED:reservation.cancelled}
     reservation-revoked: ${RABBITMQ_QUEUE_RESERVATION_REVOKED:reservation.revoked}
+    reservation-approved: ${RABBITMQ_QUEUE_RESERVATION_APPROVED:reservation.approved}
   exchange:
     reservations: ${RABBITMQ_EXCHANGE_RESERVATIONS:reservations.exchange}
 

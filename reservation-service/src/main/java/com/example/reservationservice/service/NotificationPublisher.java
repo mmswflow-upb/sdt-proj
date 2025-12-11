@@ -52,4 +52,17 @@ public class NotificationPublisher {
         );
         rabbitTemplate.convertAndSend(reservationsExchange, "reservation.revoked", message);
     }
+    public void publishReservationApproved(Long reservationId, String userId, String roomId, String status) {
+        ReservationNotificationMessage message = new ReservationNotificationMessage(
+                "RESERVATION_APPROVED",
+                reservationId,
+                userId,
+                roomId,
+                null,
+                null,
+                status,
+                LocalDateTime.now()
+        );
+        rabbitTemplate.convertAndSend(reservationsExchange, "reservation.approved", message);
+    }
 }

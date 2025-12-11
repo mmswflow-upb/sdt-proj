@@ -74,7 +74,14 @@ public class ReservationService {
             throw new IllegalStateException("Cannot approve a cancelled reservation");
         }
         reservation.setStatus(ReservationStatus.APPROVED);
-        return repository.save(reservation);
+        Reservation saved = repository.save(reservation);
+        notificationPublisher.publishReservationApproved(
+                saved.getId(),
+                saved.getUserId(),
+                saved.getRoomId(),
+                saved.getStatus().toString()
+        );
+        return saved;
     }
     @Transactional
     public Reservation revokeReservation(Long id) {

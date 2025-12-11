@@ -41,4 +41,15 @@ public class ReservationNotificationListener {
         logger.info("Timestamp: {}", message.getTimestamp());
         logger.info("========================================");
     }
+    @RabbitListener(queues = "${rabbitmq.queue.reservation-approved}")
+    public void handleReservationApproved(ReservationNotificationMessage message) {
+        logger.info("=== RESERVATION APPROVED NOTIFICATION ===");
+        logger.info("Event Type: {}", message.getEventType());
+        logger.info("Reservation ID: {}", message.getReservationId());
+        logger.info("User ID: {}", message.getUserId());
+        logger.info("Room ID: {}", message.getRoomId());
+        logger.info("Status: {}", message.getStatus());
+        logger.info("Timestamp: {}", message.getTimestamp());
+        logger.info("=========================================");
+    }
 }
