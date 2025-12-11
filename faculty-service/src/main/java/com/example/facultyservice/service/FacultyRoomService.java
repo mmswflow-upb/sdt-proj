@@ -2,6 +2,7 @@ package com.example.facultyservice.service;
 import com.example.facultyservice.client.ReservationClient;
 import com.example.facultyservice.client.SchedulingClient;
 import com.example.facultyservice.dto.FacultyRoomDto;
+import com.example.facultyservice.dto.RoomRequest;
 import com.example.facultyservice.entity.FacultyRoom;
 import com.example.facultyservice.repository.FacultyRoomRepository;
 import org.springframework.stereotype.Service;
@@ -27,7 +28,8 @@ public class FacultyRoomService {
         }
         FacultyRoom room = new FacultyRoom(dto.getRoomId(), dto.getFacultyId(), dto.getCapacity(), dto.getEquipment());
         roomRepository.save(room);
-        schedulingClient.createRoom(dto.getRoomId(), dto.getFacultyId(), dto.getCapacity(), dto.getEquipment());
+        RoomRequest roomRequest = new RoomRequest(dto.getRoomId(), dto.getFacultyId(), dto.getCapacity(), dto.getEquipment());
+        schedulingClient.createRoom(roomRequest);
         return room;
     }
     @Transactional
@@ -38,7 +40,8 @@ public class FacultyRoomService {
                     room.setCapacity(dto.getCapacity());
                     room.setEquipment(dto.getEquipment());
                     FacultyRoom saved = roomRepository.save(room);
-                    schedulingClient.updateRoom(roomId, dto.getFacultyId(), dto.getCapacity(), dto.getEquipment());
+                    RoomRequest roomRequest = new RoomRequest(roomId, dto.getFacultyId(), dto.getCapacity(), dto.getEquipment());
+                    schedulingClient.updateRoom(roomId, roomRequest);
                     return saved;
                 })
                 .orElseThrow(() -> new IllegalArgumentException("Room not found: " + roomId));

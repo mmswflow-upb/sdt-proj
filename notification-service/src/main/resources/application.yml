@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: notification-service
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+rabbitmq:
+  queue:
+    reservation-created: ${RABBITMQ_QUEUE_RESERVATION_CREATED:reservation.created}
+    reservation-cancelled: ${RABBITMQ_QUEUE_RESERVATION_CANCELLED:reservation.cancelled}
+    reservation-revoked: ${RABBITMQ_QUEUE_RESERVATION_REVOKED:reservation.revoked}
+  exchange:
+    reservations: ${RABBITMQ_EXCHANGE_RESERVATIONS:reservations.exchange}
+
+server:
+  port: 8084
+
+logging:
+  level:
+    com.example.notificationservice: INFO
+    org.springframework.amqp: DEBUG

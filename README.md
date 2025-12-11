@@ -4,27 +4,36 @@ A microservices-based room reservation system built for milestone 4.
 
 ## The Implementation
 
-The system is made up of four main parts:
+The system is made up of five main parts:
 
 - **Gateway Service** - The front door for everything. Routes requests to the right service and handles authentication. Runs on port 8080.
 
 - **Faculty Service** - Takes care of user accounts (students, professors, admins), faculties, rooms, and policies. Also handles login/registration and generates JWT tokens. When rooms are deleted, it communicates with the other services to cascade those changes. Runs on port 8083.
 
-- **Reservation Service** - Manages room reservations. Students create them, admins approve or revoke them. Before creating a reservation, it talks to the scheduling service to verify room availability. Runs on port 8081.
+- **Reservation Service** - Manages room reservations. Students create them, admins approve or revoke them. Before creating a reservation, it talks to the scheduling service to verify room availability. Publishes reservation events to RabbitMQ for notifications. Runs on port 8081.
 
 - **Scheduling Service** - Keeps track of room schedules and availability. Makes sure nobody double-books a room. Other services call it to check availability and manage schedules. Runs on port 8082.
 
+- **Notification Service** - Listens to reservation events (created, cancelled, revoked) from RabbitMQ and logs notifications. In a production environment, this would send emails, push notifications, or trigger webhooks. Runs on port 8084.
+
 Each service has its own PostgreSQL database, so they're completely independent. They communicate with each other using REST APIs - for example, when you try to reserve a room, the reservation service calls the scheduling service to check if it's free.
+
+The notification service uses asynchronous messaging via RabbitMQ, which means reservation operations don't wait for notifications to be sent.
 
 ## Inter-Service Communication
 
 The services talk to each other in a few key scenarios:
 
+**Synchronous REST Communication:**
 - **Reservation -> Scheduling**: When creating a reservation, checks room availability
 - **Faculty -> Scheduling**: When deleting a room, removes associated schedules
 - **Faculty -> Reservation**: When deleting a room, revokes associated reservations
 
-All communication happens via HTTP REST calls, and each service validates JWT tokens independently for security.
+**Asynchronous Messaging (RabbitMQ):**
+- **Reservation -> Notification**: Publishes events when reservations are created, cancelled, or revoked
+- The notification service listens to these events and processes them independently
+
+All REST communication happens via HTTP, and each service validates JWT tokens independently for security. Feign clients are used to simplify inter-service REST calls.
 
 Also, the JWTs of users are further passed with inter-service requests, so requests can be traced back to users.
 
@@ -49,15 +58,16 @@ docker compose up -d --build
 
 This command will:
 
-- Build all four microservices (gateway, faculty, reservation, scheduling)
+- Build all five microservices (gateway, faculty, reservation, scheduling, notification)
 - Spin up three PostgreSQL databases
+- Start RabbitMQ message broker
 - Start everything on their respective ports
 
 Give it about a minute to fully start up. You'll know it's ready when you see logs from all services.
 
 ### Step 2: Verify Services Are Running
 
-Verify if images were created, you should see 4 images starting with `sdt-campus-*` and a `postgres 15` image:
+Verify if images were created, you should see 5 images starting with `sdt-campus-*`, a `postgres:15` image, and `rabbitmq:3.12-management`:
 
 ```bash
 docker images
@@ -69,7 +79,34 @@ Verify if containers are running:
 docker ps
 ```
 
-### Step 3: Import Postman Collections
+### Step 3: Monitor Notification Service Logs
+
+The notification service logs all reservation events (created, cancelled, revoked). To view these logs in real-time:
+
+```bash
+docker logs -f sdt-campus-reservations-notification-service-1
+```
+
+You can also view logs from any specific service:
+
+```bash
+docker logs -f sdt-campus-reservations-reservation-service-1
+docker logs -f sdt-campus-reservations-gateway-service-1
+```
+
+To stop following logs, press `Ctrl+C`.
+
+### Step 4: Access RabbitMQ Management Console (Optional)
+
+RabbitMQ provides a web-based management interface to monitor queues, exchanges, and messages:
+
+- **URL**: <http://localhost:15672>
+- **Username**: `guest` (or your `RABBITMQ_USERNAME` from `.env`)
+- **Password**: `guest` (or your `RABBITMQ_PASSWORD` from `.env`)
+
+Here you can see message flow, queue depths, and troubleshoot messaging issues.
+
+### Step 5: Import Postman Collections
 
 Navigate to the `postman-collections` folder in this repository. You'll find:
 
@@ -121,17 +158,24 @@ docker compose down -v --rmi all
 
 ## Troubleshooting
 
-**Services won't start**: Make sure ports 8080-8083 and 5433-5435 aren't being used by other applications.
+**Services won't start**: Make sure ports 8080-8084, 5433-5435, 5672, and 15672 aren't being used by other applications.
 
-**Connection errors between services**: Wait a full minute after running `docker compose up`. The databases need time to initialize before the services can connect.
+**Connection errors between services**: Wait a full minute after running `docker compose up`. The databases and RabbitMQ need time to initialize before the services can connect.
 
 **Authentication fails**: Make sure you're using the token returned from login/register in the Authorization header as `Bearer <token>`.
+
+**Notifications not appearing**: Check the notification-service logs with `docker logs -f sdt-campus-reservations-notification-service-1` and verify RabbitMQ is running with `docker ps | grep rabbitmq`.
+
+**RabbitMQ connection errors**: Ensure RabbitMQ container is healthy. Check with `docker ps` and look at RabbitMQ logs with `docker logs sdt-campus-reservations-rabbitmq-1`.
 
 ## Tech Stack
 
 - Java 21
-- Spring Boot
-- PostgreSQL
+- Spring Boot 3.1.5
+- Spring Cloud OpenFeign
+- Spring AMQP (RabbitMQ)
+- PostgreSQL 15
+- RabbitMQ 3.12
 - Docker & Docker Compose
 - JWT for authentication
 - Postman for testing

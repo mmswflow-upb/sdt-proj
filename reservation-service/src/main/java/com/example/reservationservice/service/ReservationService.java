@@ -1,5 +1,6 @@
 package com.example.reservationservice.service;
 import com.example.reservationservice.dto.ReservationRequestDto;
+import com.example.reservationservice.dto.ScheduleRequest;
 import com.example.reservationservice.entity.Reservation;
 import com.example.reservationservice.entity.ReservationStatus;
 import com.example.reservationservice.repository.ReservationRepository;
@@ -13,9 +14,12 @@ import java.util.stream.Collectors;
 public class ReservationService {
     private final ReservationRepository repository;
     private final SchedulingClient schedulingClient;
-    public ReservationService(ReservationRepository repository, SchedulingClient schedulingClient) {
+    private final NotificationPublisher notificationPublisher;
+    public ReservationService(ReservationRepository repository, SchedulingClient schedulingClient,
+                             NotificationPublisher notificationPublisher) {
         this.repository = repository;
         this.schedulingClient = schedulingClient;
+        this.notificationPublisher = notificationPublisher;
     }
     @Transactional
     public Reservation createReservation(ReservationRequestDto dto, String userId) {
@@ -50,7 +54,16 @@ public class ReservationService {
                 ReservationStatus.PENDING
         );
         reservation = repository.save(reservation);
-        schedulingClient.createSchedule(dto.getRoomId(), start, end, reservation.getId());
+        ScheduleRequest scheduleRequest = new ScheduleRequest(dto.getRoomId(), start, end, reservation.getId());
+        schedulingClient.createSchedule(scheduleRequest);
+        notificationPublisher.publishReservationCreated(
+                reservation.getId(),
+                reservation.getUserId(),
+                reservation.getRoomId(),
+                reservation.getStartDateTime(),
+                reservation.getEndDateTime(),
+                reservation.getStatus().toString()
+        );
         return reservation;
     }
     @Transactional
@@ -80,6 +93,12 @@ public class ReservationService {
         } catch (Exception e) {
             System.err.println("Warning: Could not remove schedule for reservation " + id + ": " + e.getMessage());
         }
+        notificationPublisher.publishReservationRevoked(
+                reservation.getId(),
+                reservation.getUserId(),
+                reservation.getRoomId(),
+                reservation.getStatus().toString()
+        );
         return reservation;
     }
     @Transactional
@@ -102,6 +121,12 @@ public class ReservationService {
         } catch (Exception e) {
             System.err.println("Warning: Could not remove schedule for reservation " + id + ": " + e.getMessage());
         }
+        notificationPublisher.publishReservationCancelled(
+                reservation.getId(),
+                reservation.getUserId(),
+                reservation.getRoomId(),
+                reservation.getStatus().toString()
+        );
         return reservation;
     }
     @Transactional
@@ -116,6 +141,12 @@ public class ReservationService {
                     System.err.println("Warning: Could not remove schedule for reservation " + r.getId() + ": " + e.getMessage());
                 }
                 repository.save(r);
+                notificationPublisher.publishReservationRevoked(
+                        r.getId(),
+                        r.getUserId(),
+                        r.getRoomId(),
+                        r.getStatus().toString()
+                );
             }
         }
         return reservations;
