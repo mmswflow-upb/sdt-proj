@@ -125,7 +125,7 @@ jobs:
         run: newman run postman-collections/5-Authorization-Tests.postman_collection.json -e postman-collections/SDT-Campus-Reservation.postman_environment.json --reporters cli,htmlextra --reporter-htmlextra-export test-results/authorization-report.html
       
       - name: Upload Test Reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: postman-test-reports
