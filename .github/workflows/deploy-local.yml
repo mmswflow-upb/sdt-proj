@@ -1,0 +1,136 @@
+name: Local Docker Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - 5-microservices-extended
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
+
+jobs:
+  check-authorization:
+    runs-on: ubuntu-latest
+    outputs:
+      authorized: ${{ steps.auth.outputs.authorized }}
+    steps:
+      - name: Check if user is authorized
+        id: auth
+        run: |
+          # List of authorized users (add GitHub usernames here)
+          ALLOWED_USERS="mmswflow-upb"
+          
+          # Get the user who triggered the workflow
+          ACTOR="${{ github.actor }}"
+          
+          echo "Workflow triggered by: $ACTOR"
+          
+          # Check if user is in the allowed list
+          if echo "$ALLOWED_USERS" | grep -q "$ACTOR"; then
+            echo "User $ACTOR is in the authorized list"
+            echo "authorized=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Check if user is a repository contributor
+          RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/contributors")
+          
+          if echo "$RESPONSE" | grep -q "\"login\": \"$ACTOR\""; then
+            echo "User $ACTOR is a repository contributor"
+            echo "authorized=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "User $ACTOR is NOT authorized to deploy"
+          echo "authorized=false" >> $GITHUB_OUTPUT
+          exit 1
+
+  deploy:
+    needs: check-authorization
+    if: needs.check-authorization.outputs.authorized == 'true'
+    runs-on: self-hosted
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Start Docker Desktop
+        run: |
+          # Check if Docker Desktop is running
+          $dockerRunning = Get-Process "Docker Desktop" -ErrorAction SilentlyContinue
+          
+          if (-not $dockerRunning) {
+            Write-Host "Starting Docker Desktop..."
+            Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+            
+            # Wait for Docker to be ready (check docker command availability)
+            $timeout = 120
+            $elapsed = 0
+            while ($elapsed -lt $timeout) {
+              try {
+                docker info 2>&1 | Out-Null
+                if ($LASTEXITCODE -eq 0) {
+                  Write-Host "Docker Desktop is ready"
+                  break
+                }
+              } catch {}
+              Write-Host "Waiting for Docker Desktop to start... ($elapsed seconds)"
+              Start-Sleep -Seconds 5
+              $elapsed += 5
+            }
+            
+            if ($elapsed -ge $timeout) {
+              Write-Error "Docker Desktop failed to start within $timeout seconds"
+              exit 1
+            }
+          } else {
+            Write-Host "Docker Desktop is already running"
+          }
+      
+      - name: Stop and remove containers with volumes
+        run: docker-compose down -v --remove-orphans
+      
+      - name: Remove project images
+        run: |
+          docker-compose images -q | ForEach-Object { docker rmi $_ -f }
+      
+      - name: Build Docker images
+        run: docker-compose build --no-cache
+      
+      - name: Start services
+        run: docker-compose up -d
+      
+      - name: Wait for services to be healthy
+        run: Start-Sleep -Seconds 30
+      
+      - name: Show running containers
+        run: docker-compose ps
+      
+      - name: Install Newman (Postman CLI)
+        run: npm install -g newman newman-reporter-htmlextra
+      
+      - name: Run Postman Tests - Setup
+        run: newman run postman-collections/1-Setup.postman_collection.json -e postman-collections/SDT-Campus-Reservation.postman_environment.json --reporters cli,htmlextra --reporter-htmlextra-export test-results/setup-report.html
+      
+      - name: Run Postman Tests - Student Workflow
+        run: newman run postman-collections/2-Student-Workflow.postman_collection.json -e postman-collections/SDT-Campus-Reservation.postman_environment.json --reporters cli,htmlextra --reporter-htmlextra-export test-results/student-workflow-report.html
+      
+      - name: Run Postman Tests - Admin Workflow
+        run: newman run postman-collections/3-Admin-Workflow.postman_collection.json -e postman-collections/SDT-Campus-Reservation.postman_environment.json --reporters cli,htmlextra --reporter-htmlextra-export test-results/admin-workflow-report.html
+      
+      - name: Run Postman Tests - Edge Cases
+        run: newman run postman-collections/4-Edge-Cases.postman_collection.json -e postman-collections/SDT-Campus-Reservation.postman_environment.json --reporters cli,htmlextra --reporter-htmlextra-export test-results/edge-cases-report.html
+      
+      - name: Run Postman Tests - Authorization Tests
+        run: newman run postman-collections/5-Authorization-Tests.postman_collection.json -e postman-collections/SDT-Campus-Reservation.postman_environment.json --reporters cli,htmlextra --reporter-htmlextra-export test-results/authorization-report.html
+      
+      - name: Upload Test Reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: postman-test-reports
+          path: test-results/*.html
+          retention-days: 30
+      
+      - name: Show service logs (last 50 lines)
+        run: docker-compose logs --tail=50
