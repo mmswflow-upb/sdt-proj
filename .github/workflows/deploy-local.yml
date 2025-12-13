@@ -45,7 +45,7 @@ jobs:
           echo "authorized=false" >> $GITHUB_OUTPUT
           exit 1
 
-  build-and-deploy:
+  deploy-and-test:
     needs: check-authorization
     if: needs.check-authorization.outputs.authorized == 'true'
     runs-on: self-hosted
@@ -152,23 +152,18 @@ jobs:
           }
           
           if (-not $ready) {
-            Write-Host "Gateway not ready after $timeout seconds, but continuing..."
+            Write-Error "Gateway not ready after $timeout seconds"
             Write-Host "Container status:"
             docker-compose ps
+            Write-Host "Recent logs:"
+            docker-compose logs --tail=50
+            exit 1
           } else {
             Write-Host "Services are ready after $($elapsed + 30) seconds total"
           }
       
       - name: Show running containers
         run: docker-compose ps
-
-  test:
-    needs: build-and-deploy
-    runs-on: self-hosted
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
       
       - name: Install Newman (Postman CLI)
         run: npm install -g newman newman-reporter-htmlextra
