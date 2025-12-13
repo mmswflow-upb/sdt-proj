@@ -117,7 +117,47 @@ jobs:
         run: docker-compose up -d
       
       - name: Wait for services to be healthy
-        run: Start-Sleep -Seconds 30
+        run: |
+          Write-Host "Waiting for services to start..."
+          Start-Sleep -Seconds 30
+          
+          Write-Host "Checking if gateway is accessible on port 8080..."
+          $timeout = 120
+          $elapsed = 0
+          $ready = $false
+          
+          while ($elapsed -lt $timeout) {
+            try {
+              $response = Invoke-WebRequest -Uri "http://localhost:8080/actuator/health" -TimeoutSec 2 -UseBasicParsing -ErrorAction SilentlyContinue
+              if ($response.StatusCode -eq 200) {
+                Write-Host "Gateway is ready!"
+                $ready = $true
+                break
+              }
+            } catch {
+              # Try without actuator endpoint
+              try {
+                $testConnection = Test-NetConnection -ComputerName localhost -Port 8080 -WarningAction SilentlyContinue
+                if ($testConnection.TcpTestSucceeded) {
+                  Write-Host "Gateway port 8080 is accessible!"
+                  $ready = $true
+                  break
+                }
+              } catch {}
+            }
+            
+            Write-Host "Waiting for gateway... ($elapsed/$timeout seconds)"
+            Start-Sleep -Seconds 5
+            $elapsed += 5
+          }
+          
+          if (-not $ready) {
+            Write-Host "Gateway not ready after $timeout seconds, but continuing..."
+            Write-Host "Container status:"
+            docker-compose ps
+          } else {
+            Write-Host "Services are ready after $($elapsed + 30) seconds total"
+          }
       
       - name: Show running containers
         run: docker-compose ps
