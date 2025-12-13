@@ -56,35 +56,49 @@ jobs:
       
       - name: Start Docker Desktop
         run: |
-          # Check if Docker Desktop is running
-          $dockerRunning = Get-Process "Docker Desktop" -ErrorAction SilentlyContinue
+          Write-Host "Checking Docker status..."
           
-          if (-not $dockerRunning) {
+          # Try to run a simple Docker command to check if it's working
+          $dockerWorks = $false
+          try {
+            $null = docker ps 2>&1
+            if ($LASTEXITCODE -eq 0) {
+              $dockerWorks = $true
+              Write-Host "Docker is already running and ready"
+            }
+          } catch {
+            Write-Host "Docker not responding yet"
+          }
+          
+          if (-not $dockerWorks) {
             Write-Host "Starting Docker Desktop..."
-            Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+            Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe" -ErrorAction SilentlyContinue
             
-            # Wait for Docker to be ready (check docker command availability)
+            # Wait for Docker daemon to be ready
             $timeout = 120
             $elapsed = 0
+            $ready = $false
+            
             while ($elapsed -lt $timeout) {
+              Start-Sleep -Seconds 5
+              $elapsed += 5
+              
               try {
-                docker info 2>&1 | Out-Null
+                $null = docker ps 2>&1
                 if ($LASTEXITCODE -eq 0) {
-                  Write-Host "Docker Desktop is ready"
+                  Write-Host "Docker Desktop is ready (took $elapsed seconds)"
+                  $ready = $true
                   break
                 }
               } catch {}
-              Write-Host "Waiting for Docker Desktop to start... ($elapsed seconds)"
-              Start-Sleep -Seconds 5
-              $elapsed += 5
+              
+              Write-Host "Waiting for Docker Desktop... ($elapsed/$timeout seconds)"
             }
             
-            if ($elapsed -ge $timeout) {
+            if (-not $ready) {
               Write-Error "Docker Desktop failed to start within $timeout seconds"
               exit 1
             }
-          } else {
-            Write-Host "Docker Desktop is already running"
           }
       
       - name: Stop and remove containers with volumes
