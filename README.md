@@ -136,6 +136,12 @@ Hover over the names of each collection, click on the 3 dots, select `Run`, then
 
 For detailed information about each collection's structure and workflow, [see here](postman-collections/README.md).
 
+## CI/CD Pipeline
+
+The project includes an automated CI/CD pipeline using GitHub Actions with a self-hosted runner. When code is pushed, it automatically builds all services, deploys them locally, and runs all Postman test collections.
+
+For more details, see [CI-CD-SETUP.md](CI-CD-SETUP.md).
+
 ### Stopping the Services
 
 To stop everything:
