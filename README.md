@@ -1,6 +1,6 @@
 # Campus Room Reservation System
 
-A microservices-based room reservation system built for milestone 4.
+A microservices-based room reservation system built for milestone 5.
 
 ## The Implementation
 
@@ -16,7 +16,7 @@ The system is made up of five main parts:
 
 - **Notification Service** - Listens to reservation events (created, cancelled, revoked) from RabbitMQ and logs notifications. In a production environment, this would send emails, push notifications, or trigger webhooks. Runs on port 8084.
 
-Each service has its own PostgreSQL database, so they're completely independent. They communicate with each other using REST APIs - for example, when you try to reserve a room, the reservation service calls the scheduling service to check if it's free.
+The faculty, reservation, and scheduling services each have their own PostgreSQL database for data isolation. The gateway and notification services are stateless and don't require databases.
 
 The notification service uses asynchronous messaging via RabbitMQ, which means reservation operations don't wait for notifications to be sent.
 
@@ -50,7 +50,7 @@ Clone the repo and navigate to the project directory, add a `.env` file using th
 
 ### Step 2: Run Services
 
-On Windows/Mac, make sure you have started **Docker Desktop**, then run in the terminal:
+On Windows/Mac, ensure Docker Desktop is running, then execute in the terminal:
 
 ```bash
 docker compose up -d --build
@@ -63,11 +63,11 @@ This command will:
 - Start RabbitMQ message broker
 - Start everything on their respective ports
 
-Give it about a minute to fully start up. You'll know it's ready when you see logs from all services.
+Give it about a minute to fully start up. The system is ready when logs from all services appear.
 
-### Step 2: Verify Services Are Running
+### Step 3: Verify Services Are Running
 
-Verify if images were created, you should see 5 images starting with `sdt-campus-*`, a `postgres:15` image, and `rabbitmq:3.12-management`:
+Verify if images were created, there should be 5 images starting with `sdt-campus-*`, a `postgres:15` image, and `rabbitmq:3.12-management`:
 
 ```bash
 docker images
@@ -79,7 +79,7 @@ Verify if containers are running:
 docker ps
 ```
 
-### Step 3: Monitor Notification Service Logs
+### Step 4: Monitor Notification Service Logs
 
 The notification service logs all reservation events (created, cancelled, revoked). To view these logs in real-time:
 
@@ -87,7 +87,7 @@ The notification service logs all reservation events (created, cancelled, revoke
 docker logs -f sdt-campus-reservations-notification-service-1
 ```
 
-You can also view logs from any specific service:
+To view logs from a specific service:
 
 ```bash
 docker logs -f sdt-campus-reservations-reservation-service-1
@@ -96,19 +96,19 @@ docker logs -f sdt-campus-reservations-gateway-service-1
 
 To stop following logs, press `Ctrl+C`.
 
-### Step 4: Access RabbitMQ Management Console (Optional)
+### Step 5: Access RabbitMQ Management Console (Optional)
 
 RabbitMQ provides a web-based management interface to monitor queues, exchanges, and messages:
 
 - **URL**: <http://localhost:15672>
-- **Username**: `guest` (or your `RABBITMQ_USERNAME` from `.env`)
-- **Password**: `guest` (or your `RABBITMQ_PASSWORD` from `.env`)
+- **Username**: `guest` (or the `RABBITMQ_USERNAME` from `.env`)
+- **Password**: `guest` (or the `RABBITMQ_PASSWORD` from `.env`)
 
-Here you can see message flow, queue depths, and troubleshoot messaging issues.
+Here we can see message flow, queue depths, and troubleshoot messaging issues.
 
-### Step 5: Import Postman Collections
+### Step 6: Import Postman Collections
 
-Navigate to the `postman-collections` folder in this repository. You'll find:
+Navigate to the `postman-collections` folder in this repository. It contains:
 
 - **`SDT-Campus-Reservation.postman_environment.json`** - The shared environment file with all configuration and variables
 - **`1-Setup.postman_collection.json`** - Initial setup (login admin, create faculty, rooms, policy, users)
@@ -138,9 +138,33 @@ For detailed information about each collection's structure and workflow, [see he
 
 ## CI/CD Pipeline
 
-The project includes an automated CI/CD pipeline using GitHub Actions with a self-hosted runner. When code is pushed, it automatically builds all services, deploys them locally, and runs all Postman test collections.
+The project uses GitHub Actions with a self-hosted runner for automated deployment. When code is pushed to 5-microservices-extended:
+- Verifies Docker is running
+- Removes old containers and images
+- Builds all microservices with unit tests
+- Deploys containers locally
+
+If unit tests fail during build, deployment stops.
+
+**Requirements**: Docker Desktop must be running before the workflow starts.
+
+**Security**: The self-hosted runner only executes workflows from this repository. Forks cannot trigger deployments on our machine because they lack access to the runner.
 
 For more details, see [CI-CD-SETUP.md](CI-CD-SETUP.md).
+
+## Testing
+
+### Unit Tests
+JUnit 5 + Mockito tests for core service layer components:
+- Reservation management
+- User registration and authentication
+- Faculty and room operations
+- Scheduling and availability logic
+
+Tests run during Docker build. See [UNIT-TESTS.md](UNIT-TESTS.md).
+
+### Integration Tests
+Postman collections for end-to-end API testing across microservices. See [postman-collections/README.md](postman-collections/README.md).
 
 ### Stopping the Services
 
@@ -168,7 +192,7 @@ docker compose down -v --rmi all
 
 **Connection errors between services**: Wait a full minute after running `docker compose up`. The databases and RabbitMQ need time to initialize before the services can connect.
 
-**Authentication fails**: Make sure you're using the token returned from login/register in the Authorization header as `Bearer <token>`.
+**Authentication fails**: Ensure the token returned from login/register is used in the Authorization header as `Bearer <token>`.
 
 **Notifications not appearing**: Check the notification-service logs with `docker logs -f sdt-campus-reservations-notification-service-1` and verify RabbitMQ is running with `docker ps | grep rabbitmq`.
 

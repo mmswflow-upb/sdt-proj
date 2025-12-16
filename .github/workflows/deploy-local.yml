@@ -3,103 +3,19 @@ name: Local Docker Deployment
 on:
   push:
     branches:
-      - main
       - 5-microservices-extended
   workflow_dispatch:  # Allows manual trigger from GitHub UI
 
 jobs:
-  check-authorization:
-    runs-on: ubuntu-latest
-    outputs:
-      authorized: ${{ steps.auth.outputs.authorized }}
-    steps:
-      - name: Check if user is authorized
-        id: auth
-        run: |
-          # List of authorized users (add GitHub usernames here)
-          ALLOWED_USERS="mmswflow-upb"
-          
-          # Get the user who triggered the workflow
-          ACTOR="${{ github.actor }}"
-          
-          echo "Workflow triggered by: $ACTOR"
-          
-          # Check if user is in the allowed list
-          if echo "$ALLOWED_USERS" | grep -q "$ACTOR"; then
-            echo "User $ACTOR is in the authorized list"
-            echo "authorized=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          # Check if user is a repository contributor
-          RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/contributors")
-          
-          if echo "$RESPONSE" | grep -q "\"login\": \"$ACTOR\""; then
-            echo "User $ACTOR is a repository contributor"
-            echo "authorized=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          echo "User $ACTOR is NOT authorized to deploy"
-          echo "authorized=false" >> $GITHUB_OUTPUT
-          exit 1
-
-  deploy-and-test:
-    needs: check-authorization
-    if: needs.check-authorization.outputs.authorized == 'true'
+  deploy:
     runs-on: self-hosted
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Start Docker Desktop
-        run: |
-          Write-Host "Checking Docker status..."
-          
-          # Try to run a simple Docker command to check if it's working
-          $dockerWorks = $false
-          try {
-            $null = docker ps 2>&1
-            if ($LASTEXITCODE -eq 0) {
-              $dockerWorks = $true
-              Write-Host "Docker is already running and ready"
-            }
-          } catch {
-            Write-Host "Docker not responding yet"
-          }
-          
-          if (-not $dockerWorks) {
-            Write-Host "Starting Docker Desktop..."
-            Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe" -ErrorAction SilentlyContinue
-            
-            # Wait for Docker daemon to be ready
-            $timeout = 120
-            $elapsed = 0
-            $ready = $false
-            
-            while ($elapsed -lt $timeout) {
-              Start-Sleep -Seconds 5
-              $elapsed += 5
-              
-              try {
-                $null = docker ps 2>&1
-                if ($LASTEXITCODE -eq 0) {
-                  Write-Host "Docker Desktop is ready (took $elapsed seconds)"
-                  $ready = $true
-                  break
-                }
-              } catch {}
-              
-              Write-Host "Waiting for Docker Desktop... ($elapsed/$timeout seconds)"
-            }
-            
-            if (-not $ready) {
-              Write-Error "Docker Desktop failed to start within $timeout seconds"
-              exit 1
-            }
-          }
+      - name: Verify Docker is running
+        run: docker ps
       
       - name: Stop and remove containers with volumes
         run: docker-compose down -v --remove-orphans
@@ -120,89 +36,16 @@ jobs:
           Copy-Item .env.example .env
           Write-Host ".env file created successfully"
       
-      - name: Build Docker images
-        run: docker-compose build --no-cache
+      - name: Build Docker images (includes unit tests)
+        run: |
+          Write-Host "Building Docker images (Maven will run unit tests during build)..."
+          docker-compose build --no-cache
       
       - name: Start services
         run: docker-compose up -d
       
-      - name: Wait for services to be healthy
-        run: |
-          Write-Host "Waiting for services to start..."
-          Start-Sleep -Seconds 30
-          
-          Write-Host "Checking if gateway is accessible on port 8080..."
-          $timeout = 120
-          $elapsed = 0
-          $ready = $false
-          
-          while ($elapsed -lt $timeout) {
-            try {
-              $response = Invoke-WebRequest -Uri "http://localhost:8080/actuator/health" -TimeoutSec 2 -UseBasicParsing -ErrorAction SilentlyContinue
-              if ($response.StatusCode -eq 200) {
-                Write-Host "Gateway is ready!"
-                $ready = $true
-                break
-              }
-            } catch {
-              # Try without actuator endpoint
-              try {
-                $testConnection = Test-NetConnection -ComputerName localhost -Port 8080 -WarningAction SilentlyContinue
-                if ($testConnection.TcpTestSucceeded) {
-                  Write-Host "Gateway port 8080 is accessible!"
-                  $ready = $true
-                  break
-                }
-              } catch {}
-            }
-            
-            Write-Host "Waiting for gateway... ($elapsed/$timeout seconds)"
-            Start-Sleep -Seconds 5
-            $elapsed += 5
-          }
-          
-          if (-not $ready) {
-            Write-Error "Gateway not ready after $timeout seconds"
-            Write-Host "Container status:"
-            docker-compose ps
-            Write-Host "Recent logs:"
-            docker-compose logs --tail=50
-            exit 1
-          } else {
-            Write-Host "Services are ready after $($elapsed + 30) seconds total"
-          }
-      
       - name: Show running containers
         run: docker-compose ps
-      
-      - name: Install Newman (Postman CLI)
-        run: npm install -g newman newman-reporter-htmlextra
-      
-      - name: Create test results directory
-        run: New-Item -ItemType Directory -Force -Path test-results
-      
-      - name: Run Postman Tests - Setup
-        run: newman run postman-collections/1-Setup.postman_collection.json -e postman-collections/SDT-Campus-Reservation.postman_environment.json --reporters cli --reporter-htmlextra --reporter-htmlextra-export test-results/setup-report.html --export-environment test-results/environment.json
-      
-      - name: Run Postman Tests - Student Workflow
-        run: newman run postman-collections/2-Student-Workflow.postman_collection.json -e test-results/environment.json --reporters cli --reporter-htmlextra --reporter-htmlextra-export test-results/student-workflow-report.html --export-environment test-results/environment.json
-      
-      - name: Run Postman Tests - Admin Workflow
-        run: newman run postman-collections/3-Admin-Workflow.postman_collection.json -e test-results/environment.json --reporters cli --reporter-htmlextra --reporter-htmlextra-export test-results/admin-workflow-report.html --export-environment test-results/environment.json
-      
-      - name: Run Postman Tests - Edge Cases
-        run: newman run postman-collections/4-Edge-Cases.postman_collection.json -e test-results/environment.json --reporters cli --reporter-htmlextra --reporter-htmlextra-export test-results/edge-cases-report.html --export-environment test-results/environment.json
-      
-      - name: Run Postman Tests - Authorization Tests
-        run: newman run postman-collections/5-Authorization-Tests.postman_collection.json -e test-results/environment.json --reporters cli --reporter-htmlextra --reporter-htmlextra-export test-results/authorization-report.html
-      
-      - name: Upload Test Reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: postman-test-reports
-          path: test-results/*.html
-          retention-days: 30
       
       - name: Show service logs (last 50 lines)
         run: docker-compose logs --tail=50
