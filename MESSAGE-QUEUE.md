@@ -1,172 +1,85 @@
 # Message Queue Architecture
 
-This document explains how RabbitMQ messaging works in the Campus Reservation System.
-
-## Overview
-
-The system uses RabbitMQ for asynchronous communication between the Reservation Service and Notification Service. When reservation events happen, messages are published to RabbitMQ and consumed by the notification service independently.
+We use RabbitMQ for asynchronous communication between Reservation Service and Notification Service.
 
 ## Architecture Pattern
 
-The implementation uses a **publish-subscribe pattern** with topic exchange and routing keys.
-
-```
-Reservation Service (Publisher)
-    |
-    | publishes message
-    v
-Topic Exchange (reservations.exchange)
-    |
-    | routes by routing key
-    v
-Queues (reservation.created, reservation.cancelled, etc.)
-    |
-    | consumes messages
-    v
-Notification Service (Consumer)
-```
+We implement a publish-subscribe pattern with topic exchange and routing keys.
 
 ## Components
 
-### Publisher - Reservation Service
+### Publisher
 
-The reservation service publishes messages when these events occur:
+Reservation Service publishes messages for these events:
 - Reservation created
 - Reservation approved
 - Reservation cancelled
 - Reservation revoked
 
-**How it works:**
+We use RabbitTemplate to send messages to the topic exchange with specific routing keys. The service converts Java objects to JSON automatically and does not wait for responses.
 
-1. Uses `RabbitTemplate` to send messages
-2. Converts Java objects to JSON automatically
-3. Sends to topic exchange with specific routing key
-4. Does not wait for response
+### Exchange
 
-Example from `NotificationPublisher.java`:
-```java
-rabbitTemplate.convertAndSend(
-    "reservations.exchange",     // exchange name
-    "reservation.created",        // routing key
-    message                       // message object
-);
-```
+Topic exchange routes messages to queues based on routing keys.
 
-### Exchange - Topic Exchange
-
-The topic exchange routes messages to queues based on routing keys.
-
-**Configuration:**
-- Exchange name: `reservations.exchange`
+Configuration:
+- Exchange name: reservations.exchange
 - Type: Topic
 - Durable: Yes
 
-**Routing keys used:**
-- `reservation.created`
-- `reservation.approved`
-- `reservation.cancelled`
-- `reservation.revoked`
+Routing keys:
+- reservation.created
+- reservation.approved
+- reservation.cancelled
+- reservation.revoked
 
 ### Queues
 
-Four separate queues store messages until consumed:
-- `reservation.created`
-- `reservation.approved`
-- `reservation.cancelled`
-- `reservation.revoked`
+Four queues store messages until consumed. Each queue is bound to the topic exchange with its matching routing key.
 
-Each queue is bound to the topic exchange with its matching routing key.
+### Consumer
 
-### Consumer - Notification Service
-
-The notification service listens to all four queues using `@RabbitListener`.
-
-**How it works:**
-
-1. Spring AMQP listens to queues
-2. Converts JSON messages back to Java objects
-3. Calls listener methods when messages arrive
-4. Processes messages independently
-
-Example from `ReservationNotificationListener.java`:
-```java
-@RabbitListener(queues = "${rabbitmq.queue.reservation-created}")
-public void handleReservationCreated(ReservationNotificationMessage message) {
-    logger.info("Reservation created: {}", message.getReservationId());
-}
-```
+Notification Service listens to all four queues using @RabbitListener. Spring AMQP converts JSON messages back to Java objects and calls listener methods when messages arrive.
 
 ## Message Format
 
-Messages are JSON objects with this structure:
+Messages contain:
+- eventType
+- reservationId
+- userId
+- roomId
+- startDateTime
+- endDateTime
+- status
+- timestamp
 
-```json
-{
-  "eventType": "RESERVATION_CREATED",
-  "reservationId": 123,
-  "userId": "user456",
-  "roomId": "room789",
-  "startDateTime": "2025-12-15T10:00:00",
-  "endDateTime": "2025-12-15T12:00:00",
-  "status": "PENDING",
-  "timestamp": "2025-12-14T09:30:00"
-}
-```
-
-## One-Way vs Two-Way Communication
+## Communication Patterns
 
 ### One-Way Communication
 
-RabbitMQ messaging is **one-way** by default. The publisher sends a message and immediately continues without waiting for a response.
+RabbitMQ messaging is one-way by default. The publisher sends a message and immediately continues without waiting for a response.
 
-**Characteristics:**
-- Publisher does not block
-- Consumer processes messages at its own pace
-- No direct response to publisher
-- Fire and forget
-
-**Example flow:**
+Flow:
 1. User creates reservation
 2. Reservation service saves to database
 3. Reservation service publishes message to RabbitMQ
 4. Reservation service returns response to user
-5. Later, notification service processes the message
+5. Notification service processes the message later
 
-### Two-Way Communication
-
-RabbitMQ can support request-reply patterns using:
-- Reply-to queues
-- Correlation IDs
-- RPC over AMQP
-
-**How it works:**
-1. Publisher sends message with reply-to queue and correlation ID
-2. Publisher waits on reply-to queue
-3. Consumer processes message
-4. Consumer sends response to reply-to queue with same correlation ID
-5. Publisher receives response
-
-**Why we don't use it:**
-
-Notifications don't need immediate responses. Using one-way messaging:
+Benefits:
+- Publisher does not block
+- Consumer processes at its own pace
+- Fire and forget
 - Keeps reservation operations fast
 - Prevents notification failures from blocking reservations
 - Allows notification service to scale independently
 - Supports offline processing and retries
 
-## HTTP vs Message Queue Communication
+## HTTP vs Message Queue
 
-### HTTP (Synchronous)
+### HTTP
 
-Used for operations requiring immediate responses:
-
-**Reservation Service -> Scheduling Service:**
-```
-Request: Check if room is available
-Wait for response
-Response: Room is available/unavailable
-Continue based on response
-```
+We use HTTP for operations requiring immediate responses like checking room availability with Scheduling Service.
 
 Characteristics:
 - Blocking call
@@ -174,17 +87,9 @@ Characteristics:
 - Direct request-response
 - Timeout if service unavailable
 
-### Message Queue (Asynchronous)
+### Message Queue
 
-Used for notifications and events:
-
-**Reservation Service -> Notification Service:**
-```
-Event: Reservation created
-Publish to queue
-Continue immediately
-(Later) Notification service processes event
-```
+We use message queues for notifications and events.
 
 Characteristics:
 - Non-blocking
@@ -192,24 +97,24 @@ Characteristics:
 - Decoupled services
 - Resilient to service downtime
 
-## Benefits of This Architecture
+## Benefits
 
-**Decoupling:**
-- Reservation service doesn't know about notification service
+Decoupling:
+- Reservation service does not know about notification service
 - Services can be deployed independently
-- Changes to notification logic don't affect reservations
+- Changes to notification logic do not affect reservations
 
-**Resilience:**
+Resilience:
 - Messages persist in queues if notification service is down
 - Notification service processes messages when it restarts
 - No data loss during failures
 
-**Performance:**
+Performance:
 - Reservation operations complete faster
 - No waiting for notification processing
 - Can handle traffic spikes
 
-**Scalability:**
+Scalability:
 - Can run multiple notification service instances
 - Messages distributed among consumers
 - Each service scales independently
@@ -219,70 +124,67 @@ Characteristics:
 ### Reservation Service
 
 Environment variables:
-- `RABBITMQ_HOST` - RabbitMQ server hostname
-- `RABBITMQ_PORT` - RabbitMQ server port
-- `RABBITMQ_USERNAME` - Authentication username
-- `RABBITMQ_PASSWORD` - Authentication password
-- `RABBITMQ_EXCHANGE_RESERVATIONS` - Exchange name
+- RABBITMQ_HOST
+- RABBITMQ_PORT
+- RABBITMQ_USERNAME
+- RABBITMQ_PASSWORD
+- RABBITMQ_EXCHANGE_RESERVATIONS
 
 ### Notification Service
 
 Environment variables:
 - Same connection settings as reservation service
-- `RABBITMQ_QUEUE_RESERVATION_CREATED` - Queue name
-- `RABBITMQ_QUEUE_RESERVATION_CANCELLED` - Queue name
-- `RABBITMQ_QUEUE_RESERVATION_REVOKED` - Queue name
-- `RABBITMQ_QUEUE_RESERVATION_APPROVED` - Queue name
+- RABBITMQ_QUEUE_RESERVATION_CREATED
+- RABBITMQ_QUEUE_RESERVATION_CANCELLED
+- RABBITMQ_QUEUE_RESERVATION_REVOKED
+- RABBITMQ_QUEUE_RESERVATION_APPROVED
 
 ## Monitoring
 
-Access RabbitMQ Management Console:
-- URL: http://localhost:15672
-- Username: guest
-- Password: guest
+Access RabbitMQ Management Console at http://localhost:15672 with guest/guest credentials.
 
-You can view:
+View:
 - Messages in queues
 - Message rates
 - Queue bindings
 - Exchange routing
 - Connection status
 
-## When Messages Are Published
+## Event Publishing
 
-**Reservation Created:**
-- User successfully creates a reservation
+Reservation Created:
+- User creates a reservation
 - Reservation saved to database
 - Message published with reservation details
 
-**Reservation Approved:**
+Reservation Approved:
 - Admin approves a pending reservation
 - Status updated to APPROVED
 - Message published
 
-**Reservation Cancelled:**
-- User cancels their own reservation
+Reservation Cancelled:
+- User cancels their reservation
 - Status updated to CANCELLED
 - Message published
 
-**Reservation Revoked:**
+Reservation Revoked:
 - Admin revokes an approved reservation
 - Status updated to REVOKED
 - Message published
 
 ## Error Handling
 
-**If message publishing fails:**
+If message publishing fails:
 - Reservation still succeeds
 - Error logged but not thrown
-- User won't receive notification
+- User will not receive notification
 
-**If message consuming fails:**
+If message consuming fails:
 - Message requeued automatically
 - Notification service retries
 - Dead letter queue can be configured for permanent failures
 
-**If notification service is down:**
+If notification service is down:
 - Messages accumulate in queues
 - Processed when service restarts
 - No messages lost

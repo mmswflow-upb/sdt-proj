@@ -18,7 +18,34 @@ The system is made up of five main parts:
 
 The faculty, reservation, and scheduling services each have their own PostgreSQL database for data isolation. The gateway and notification services are stateless and don't require databases.
 
-The notification service uses asynchronous messaging via RabbitMQ, which means reservation operations don't wait for notifications to be sent.
+## Message Queue Benefits
+
+We use RabbitMQ for asynchronous communication between the Reservation Service and Notification Service. This architectural choice provides several key advantages:
+
+**Improved Scalability:**
+- Services scale independently without affecting each other
+- Multiple notification service instances can process messages in parallel
+- Message queues buffer traffic spikes, preventing service overload
+- No blocking operations means reservation service handles more concurrent requests
+
+**Fault Tolerance:**
+- Messages persist in queues even if notification service crashes
+- Automatic retry mechanisms for failed message processing
+- No data loss during service failures or restarts
+- Services remain loosely coupled, reducing cascading failures
+
+**Performance:**
+- Reservation operations complete immediately without waiting for notifications
+- Non-blocking message publishing improves response times
+- Background processing of notifications doesn't impact user-facing operations
+
+**Disadvantages:**
+- Added complexity with message broker infrastructure
+- Eventual consistency instead of immediate consistency
+- Requires monitoring of queue depths and message processing rates
+- Debugging distributed workflows is more complex than synchronous calls
+
+The notification service uses asynchronous messaging via RabbitMQ, which means reservation operations don't wait for notifications to be sent. For more details on our messaging architecture, see [MESSAGE-QUEUE.md](MESSAGE-QUEUE.md).
 
 ## Inter-Service Communication
 
