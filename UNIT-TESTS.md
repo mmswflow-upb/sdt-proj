@@ -56,7 +56,7 @@ We implemented unit tests for core service layer components across all microserv
 
 Tests run automatically during Docker image build:
 ```bash
-docker-compose build
+docker compose build
 ```
 
 To run tests locally without Docker, Maven must be installed:

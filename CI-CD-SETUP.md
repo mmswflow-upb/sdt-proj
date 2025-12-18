@@ -37,14 +37,6 @@ Only users with write access to this repository can push commits that trigger th
 
 Workflow file: `.github/workflows/deploy-local.yml`
 
-Trigger branches (lines 4-7):
-```yaml
-push:
-  branches:
-    - main
-    - 5-microservices-extended
-```
-
 ## Environment Variables
 
 The workflow creates a .env file from .env.example before building. This provides database credentials, JWT secret, and RabbitMQ settings to all microservices.
