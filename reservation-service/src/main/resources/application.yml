@@ -17,6 +17,8 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
+    publisher-confirms: true
+    publisher-returns: true
 
 security:
   jwt:
@@ -30,6 +32,8 @@ rabbitmq:
     reservation-cancelled: ${RABBITMQ_QUEUE_RESERVATION_CANCELLED:reservation.cancelled}
     reservation-revoked: ${RABBITMQ_QUEUE_RESERVATION_REVOKED:reservation.revoked}
     reservation-approved: ${RABBITMQ_QUEUE_RESERVATION_APPROVED:reservation.approved}
+  message:
+    ttl: ${RABBITMQ_MESSAGE_TTL:60000}
 
 scheduling:
   service:

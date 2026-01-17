@@ -1,6 +1,10 @@
 package com.example.notificationservice.dto;
 import java.time.LocalDateTime;
+
 public class ReservationNotificationMessage {
+    private static final String MESSAGE_VERSION = "1.0";
+
+    private String messageVersion;
     private String eventType;
     private Long reservationId;
     private String userId;
@@ -9,11 +13,15 @@ public class ReservationNotificationMessage {
     private LocalDateTime endDateTime;
     private String status;
     private LocalDateTime timestamp;
+
     public ReservationNotificationMessage() {
+        this.messageVersion = MESSAGE_VERSION;
     }
+
     public ReservationNotificationMessage(String eventType, Long reservationId, String userId, String roomId,
                                           LocalDateTime startDateTime, LocalDateTime endDateTime,
                                           String status, LocalDateTime timestamp) {
+        this.messageVersion = MESSAGE_VERSION;
         this.eventType = eventType;
         this.reservationId = reservationId;
         this.userId = userId;
@@ -23,9 +31,19 @@ public class ReservationNotificationMessage {
         this.status = status;
         this.timestamp = timestamp;
     }
+
+    public String getMessageVersion() {
+        return messageVersion;
+    }
+
+    public void setMessageVersion(String messageVersion) {
+        this.messageVersion = messageVersion;
+    }
+
     public String getEventType() {
         return eventType;
     }
+
     public void setEventType(String eventType) {
         this.eventType = eventType;
     }
