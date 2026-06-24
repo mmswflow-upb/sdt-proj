@@ -1,0 +1,456 @@
+{
+	"info": {
+		"_postman_id": "0f8508c1-7a58-45f2-9ba4-a366938d2348",
+		"name": "2-Student-Workflow",
+		"description": "Student workflows: availability, create, list, filter, concurrent reservations.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "40275630",
+		"_collection_link": "https://acuranics-api-testing.postman.co/workspace/SDT-Campus-Reservations~b1a68e58-4184-4c2c-963a-ca7c77e04abf/collection/40275630-0f8508c1-7a58-45f2-9ba4-a366938d2348?action=share&source=collection_link&creator=40275630"
+	},
+	"item": [
+		{
+			"name": "1. Check Room Availability",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"const now = new Date();",
+							"const start = new Date(now.getTime() + 48 * 60 * 60 * 1000);",
+							"const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);",
+							"const toIso = (d) => d.toISOString().slice(0, 19);",
+							"pm.environment.set('reservation_start', toIso(start));",
+							"pm.environment.set('reservation_end', toIso(end));"
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"pm.test('Availability request succeeded', function () {",
+							"  pm.expect(pm.response.code).to.be.within(200, 299);",
+							"});"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{student_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/availability?roomId={{room_id_1}}&from={{reservation_start}}&to={{reservation_end}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"availability"
+					],
+					"query": [
+						{
+							"key": "roomId",
+							"value": "{{room_id_1}}"
+						},
+						{
+							"key": "from",
+							"value": "{{reservation_start}}"
+						},
+						{
+							"key": "to",
+							"value": "{{reservation_end}}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "2. Create Main Reservation",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code >= 200 && pm.response.code < 300) {",
+							"  const jsonData = pm.response.json();",
+							"  const id = jsonData.id || jsonData.reservationId;",
+							"  pm.environment.set('main_reservation_id', id);",
+							"  pm.test('Main reservation created', function () {",
+							"    pm.expect(id).to.exist;",
+							"  });",
+							"} else {",
+							"  pm.test('Reservation creation failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{student_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"roomId\": \"{{room_id_1}}\",\n  \"startDateTime\": \"{{reservation_start}}\",\n  \"endDateTime\": \"{{reservation_end}}\",\n  \"attendees\": 25\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/reservations",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"reservations"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "3. Get My Reservations",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"const jsonData = pm.response.json();",
+							"pm.test('Got my reservations list', function () {",
+							"  pm.expect(pm.response.code).to.eql(200);",
+							"  pm.expect(jsonData).to.be.an('array');",
+							"});",
+							"pm.test('Created reservation is present', function () {",
+							"  const id = pm.environment.get('main_reservation_id');",
+							"  const match = Array.isArray(jsonData) && jsonData.find(r => (r.id || r.reservationId) === id);",
+							"  pm.expect(!!match).to.eql(true);",
+							"});"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{student_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/reservations/me",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"reservations",
+						"me"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "4. Get My Pending Reservations",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"const jsonData = pm.response.json();",
+							"pm.test('Pending reservations returned', function () {",
+							"  pm.expect(pm.response.code).to.eql(200);",
+							"  pm.expect(Array.isArray(jsonData)).to.eql(true);",
+							"});"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{student_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/reservations/me?status=PENDING",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"reservations",
+						"me"
+					],
+					"query": [
+						{
+							"key": "status",
+							"value": "PENDING"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "5. Create Concurrent Reservation for room_id_1",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"const now = new Date();",
+							"const start = new Date(now.getTime() + 168 * 60 * 60 * 1000);",
+							"const end = new Date(start.getTime() + 1 * 60 * 60 * 1000);",
+							"const toIso = (d) => d.toISOString().slice(0, 19);",
+							"pm.environment.set('concurrent_start', toIso(start));",
+							"pm.environment.set('concurrent_end', toIso(end));"
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code >= 200 && pm.response.code < 300) {",
+							"  const jsonData = pm.response.json();",
+							"  const id = jsonData.id || jsonData.reservationId;",
+							"  pm.environment.set('concurrent_reservation_room1_id', id);",
+							"  pm.test('Concurrent reservation created', function () {",
+							"    pm.expect(id).to.exist;",
+							"  });",
+							"} else {",
+							"  pm.test('Concurrent reservation failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{student_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"roomId\": \"{{room_id_1}}\",\n  \"startDateTime\": \"{{concurrent_start}}\",\n  \"endDateTime\": \"{{concurrent_end}}\",\n  \"attendees\": 5\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/reservations",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"reservations"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "6. Create Concurrent Reservation for room_id_2",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"const now = new Date();",
+							"const start = new Date(now.getTime() + 168 * 60 * 60 * 1000);",
+							"const end = new Date(start.getTime() + 1 * 60 * 60 * 1000);",
+							"const toIso = (d) => d.toISOString().slice(0, 19);",
+							"pm.environment.set('concurrent_start', toIso(start));",
+							"pm.environment.set('concurrent_end', toIso(end));"
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code >= 200 && pm.response.code < 300) {",
+							"  const jsonData = pm.response.json();",
+							"  const id = jsonData.id || jsonData.reservationId;",
+							"  pm.environment.set('concurrent_reservation_room2_id', id);",
+							"  pm.test('Concurrent reservation created', function () {",
+							"    pm.expect(id).to.exist;",
+							"  });",
+							"} else {",
+							"  pm.test('Concurrent reservation failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{student_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"roomId\": \"{{room_id_2}}\",\n  \"startDateTime\": \"{{concurrent_start}}\",\n  \"endDateTime\": \"{{concurrent_end}}\",\n  \"attendees\": 7\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/reservations",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"reservations"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "7. Create Concurrent Reservation for room_id_3",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"const now = new Date();",
+							"const start = new Date(now.getTime() + 168 * 60 * 60 * 1000);",
+							"const end = new Date(start.getTime() + 1 * 60 * 60 * 1000);",
+							"const toIso = (d) => d.toISOString().slice(0, 19);",
+							"pm.environment.set('concurrent_start', toIso(start));",
+							"pm.environment.set('concurrent_end', toIso(end));"
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code >= 200 && pm.response.code < 300) {",
+							"  const jsonData = pm.response.json();",
+							"  const id = jsonData.id || jsonData.reservationId;",
+							"  pm.environment.set('concurrent_reservation_room3_id', id);",
+							"  pm.test('Concurrent reservation created', function () {",
+							"    pm.expect(id).to.exist;",
+							"  });",
+							"} else {",
+							"  pm.test('Concurrent reservation failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{student_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"roomId\": \"{{room_id_3}}\",\n  \"startDateTime\": \"{{concurrent_start}}\",\n  \"endDateTime\": \"{{concurrent_end}}\",\n  \"attendees\": 9\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/reservations",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"reservations"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "8. Get Reservation by Id (Student)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"pm.test('Student can get reservation by id', function () {",
+							"  pm.expect(pm.response.code).to.eql(200);",
+							"});"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{student_token}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/api/reservations/{{main_reservation_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"reservations",
+						"{{main_reservation_id}}"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

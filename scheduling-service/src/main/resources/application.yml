@@ -1,0 +1,18 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://scheduling-db:5432/scheduling}
+    username: ${SPRING_DATASOURCE_USERNAME:scheduling}
+    password: ${SPRING_DATASOURCE_PASSWORD:scheduling}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+security:
+  jwt:
+    secret: ${SECURITY_JWT_SECRET:mysecretkeymysecretkeymysecretkey}

@@ -1,0 +1,638 @@
+{
+	"info": {
+		"_postman_id": "e4195065-4774-4226-989f-d0f5e7f0a41b",
+		"name": "1-Setup",
+		"description": "Setup: admin login, base faculty, rooms, policy, and core users.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "40275630",
+		"_collection_link": "https://acuranics-api-testing.postman.co/workspace/SDT-Campus-Reservations~b1a68e58-4184-4c2c-963a-ca7c77e04abf/collection/40275630-e4195065-4774-4226-989f-d0f5e7f0a41b?action=share&source=collection_link&creator=40275630"
+	},
+	"item": [
+		{
+			"name": "1. Login Admin",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code === 200) {",
+							"  const jsonData = pm.response.json();",
+							"  pm.environment.set('admin_token', jsonData.token);",
+							"  pm.test('Admin logged in successfully', function () {",
+							"    pm.expect(jsonData.token).to.exist;",
+							"  });",
+							"} else {",
+							"  pm.test('Admin login failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"username\": \"{{admin_username}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/auth/login",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "2. Create Test Faculty",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (!pm.environment.get('faculty_external_id')) {",
+							"  const id = 'TEST_FAC_' + Date.now();",
+							"  pm.environment.set('faculty_external_id', id);",
+							"}"
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code >= 200 && pm.response.code < 300) {",
+							"  const jsonData = pm.response.json();",
+							"  const id = jsonData.id || jsonData.facultyId || pm.environment.get('faculty_external_id');",
+							"  pm.environment.set('faculty_id', id);",
+							"  pm.test('Faculty created successfully', function () {",
+							"    pm.expect(id).to.exist;",
+							"  });",
+							"} else {",
+							"  pm.test('Faculty creation failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{admin_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"facultyId\": \"{{faculty_external_id}}\",\n  \"name\": \"Test Faculty {{faculty_external_id}}\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/faculties",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"faculties"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "3. Create Test Room 01",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code >= 200 && pm.response.code < 300) {",
+							"  const jsonData = pm.response.json();",
+							"  const id = jsonData.id || jsonData.roomId || pm.environment.get('room_id_1');",
+							"  pm.environment.set('room_id_1', id);",
+							"  pm.test('Room created successfully', function () {",
+							"    pm.expect(id).to.exist;",
+							"  });",
+							"} else {",
+							"  pm.test('Room creation failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{admin_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"roomId\": \"{{faculty_external_id}}-ROOM-01\",\n  \"facultyId\": \"{{faculty_id}}\",\n  \"capacity\": 40,\n  \"equipment\": \"projector,whiteboard,computers\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/rooms",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"rooms"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "4. Create Test Room 02",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code >= 200 && pm.response.code < 300) {",
+							"  const jsonData = pm.response.json();",
+							"  const id = jsonData.id || jsonData.roomId || pm.environment.get('room_id_2');",
+							"  pm.environment.set('room_id_2', id);",
+							"  pm.test('Room created successfully', function () {",
+							"    pm.expect(id).to.exist;",
+							"  });",
+							"} else {",
+							"  pm.test('Room creation failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{admin_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"roomId\": \"{{faculty_external_id}}-ROOM-02\",\n  \"facultyId\": \"{{faculty_id}}\",\n  \"capacity\": 50,\n  \"equipment\": \"projector,whiteboard,computers\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/rooms",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"rooms"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "5. Create Test Room 03",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code >= 200 && pm.response.code < 300) {",
+							"  const jsonData = pm.response.json();",
+							"  const id = jsonData.id || jsonData.roomId || pm.environment.get('room_id_3');",
+							"  pm.environment.set('room_id_3', id);",
+							"  pm.test('Room created successfully', function () {",
+							"    pm.expect(id).to.exist;",
+							"  });",
+							"} else {",
+							"  pm.test('Room creation failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{admin_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"roomId\": \"{{faculty_external_id}}-ROOM-03\",\n  \"facultyId\": \"{{faculty_id}}\",\n  \"capacity\": 60,\n  \"equipment\": \"projector,whiteboard,computers\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/rooms",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"rooms"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "6. Create Faculty Policy",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code >= 200 && pm.response.code < 300) {",
+							"  const jsonData = pm.response.json();",
+							"  const id = jsonData.id || jsonData.policyId;",
+							"  if (id) pm.environment.set('policy_id', id);",
+							"  pm.test('Policy created successfully', function () {",
+							"    pm.expect(pm.response.code).to.be.within(200, 299);",
+							"  });",
+							"} else {",
+							"  pm.test('Policy creation failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{admin_token}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"facultyId\": \"{{faculty_id}}\",\n  \"maxDuration\": 240,\n  \"requireApproval\": false,\n  \"allowedRoles\": \"STUDENT,FACULTY_ADMIN\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/policies",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"policies"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "7. Register Student1",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code >= 200 && pm.response.code < 300) {",
+							"  pm.test('Student1 registered or already exists', function () {",
+							"    pm.expect(pm.response.code).to.be.within(200, 299);",
+							"  });",
+							"} else if (pm.response.code === 409) {",
+							"  pm.test('Student1 already exists', function () {",
+							"    pm.expect(pm.response.code).to.eql(409);",
+							"  });",
+							"} else {",
+							"  pm.test('Student1 registration failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"username\": \"{{student_username}}\",\n  \"password\": \"{{student_password}}\",\n  \"role\": \"STUDENT\",\n  \"facultyId\": \"{{faculty_id}}\",\n  \"email\": \"{{student_username}}@university.com\",\n  \"firstName\": \"Student1\",\n  \"lastName\": \"User\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/auth/register",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "8. Login Student1",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code === 200) {",
+							"  const jsonData = pm.response.json();",
+							"  pm.environment.set('student_token', jsonData.token);",
+							"  pm.test('Student1 logged in successfully', function () {",
+							"    pm.expect(jsonData.token).to.exist;",
+							"  });",
+							"} else {",
+							"  pm.test('Student1 login failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"username\": \"{{student_username}}\",\n  \"password\": \"{{student_password}}\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/auth/login",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "9. Register Faculty Admin",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code >= 200 && pm.response.code < 300) {",
+							"  pm.test('Faculty Admin registered or already exists', function () {",
+							"    pm.expect(pm.response.code).to.be.within(200, 299);",
+							"  });",
+							"} else if (pm.response.code === 409) {",
+							"  pm.test('Faculty Admin already exists', function () {",
+							"    pm.expect(pm.response.code).to.eql(409);",
+							"  });",
+							"} else {",
+							"  pm.test('Faculty Admin registration failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"username\": \"{{faculty_admin_username}}\",\n  \"password\": \"{{faculty_admin_password}}\",\n  \"role\": \"FACULTY_ADMIN\",\n  \"facultyId\": \"{{faculty_id}}\",\n  \"email\": \"{{faculty_admin_username}}@university.com\",\n  \"firstName\": \"Faculty Admin\",\n  \"lastName\": \"User\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/auth/register",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "10. Login Faculty Admin",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code === 200) {",
+							"  const jsonData = pm.response.json();",
+							"  pm.environment.set('faculty_admin_token', jsonData.token);",
+							"  pm.test('Faculty Admin logged in successfully', function () {",
+							"    pm.expect(jsonData.token).to.exist;",
+							"  });",
+							"} else {",
+							"  pm.test('Faculty Admin login failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"username\": \"{{faculty_admin_username}}\",\n  \"password\": \"{{faculty_admin_password}}\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/auth/login",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "11. Register Student2",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code >= 200 && pm.response.code < 300) {",
+							"  pm.test('Student2 registered or already exists', function () {",
+							"    pm.expect(pm.response.code).to.be.within(200, 299);",
+							"  });",
+							"} else if (pm.response.code === 409) {",
+							"  pm.test('Student2 already exists', function () {",
+							"    pm.expect(pm.response.code).to.eql(409);",
+							"  });",
+							"} else {",
+							"  pm.test('Student2 registration failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"username\": \"{{student2_username}}\",\n  \"password\": \"{{student2_password}}\",\n  \"role\": \"STUDENT\",\n  \"facultyId\": \"{{faculty_id}}\",\n  \"email\": \"{{student2_username}}@university.com\",\n  \"firstName\": \"Student2\",\n  \"lastName\": \"User\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/auth/register",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "12. Login Student2",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"if (pm.response.code === 200) {",
+							"  const jsonData = pm.response.json();",
+							"  pm.environment.set('student2_token', jsonData.token);",
+							"  pm.test('Student2 logged in successfully', function () {",
+							"    pm.expect(jsonData.token).to.exist;",
+							"  });",
+							"} else {",
+							"  pm.test('Student2 login failed', function () {",
+							"    pm.expect.fail('Status ' + pm.response.code + ' - ' + pm.response.text());",
+							"  });",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"username\": \"{{student2_username}}\",\n  \"password\": \"{{student2_password}}\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/auth/login",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"login"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

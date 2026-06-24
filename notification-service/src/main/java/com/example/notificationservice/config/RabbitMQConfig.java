@@ -1,0 +1,141 @@
+package com.example.notificationservice.config;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class RabbitMQConfig {
+    @Value("${rabbitmq.queue.reservation-created}")
+    private String reservationCreatedQueue;
+    @Value("${rabbitmq.queue.reservation-cancelled}")
+    private String reservationCancelledQueue;
+    @Value("${rabbitmq.queue.reservation-revoked}")
+    private String reservationRevokedQueue;
+    @Value("${rabbitmq.queue.reservation-approved}")
+    private String reservationApprovedQueue;
+    @Value("${rabbitmq.exchange.reservations}")
+    private String reservationsExchange;
+    @Value("${rabbitmq.exchange.dlx:reservations.dlx}")
+    private String dlxExchange;
+    @Value("${rabbitmq.queue.dlq:reservation-dead-letter-queue}")
+    private String dlqQueue;
+    @Value("${rabbitmq.message.ttl:60000}")
+    private Integer messageTTL;
+
+    // Main Queues with Dead Letter Configuration
+    @Bean
+    public Queue reservationCreatedQueue() {
+        return new Queue(reservationCreatedQueue, true, false, false,
+                java.util.Map.of(
+                        "x-dead-letter-exchange", dlxExchange,
+                        "x-message-ttl", messageTTL
+                ));
+    }
+
+    @Bean
+    public Queue reservationCancelledQueue() {
+        return new Queue(reservationCancelledQueue, true, false, false,
+                java.util.Map.of(
+                        "x-dead-letter-exchange", dlxExchange,
+                        "x-message-ttl", messageTTL
+                ));
+    }
+
+    @Bean
+    public Queue reservationRevokedQueue() {
+        return new Queue(reservationRevokedQueue, true, false, false,
+                java.util.Map.of(
+                        "x-dead-letter-exchange", dlxExchange,
+                        "x-message-ttl", messageTTL
+                ));
+    }
+
+    @Bean
+    public Queue reservationApprovedQueue() {
+        return new Queue(reservationApprovedQueue, true, false, false,
+                java.util.Map.of(
+                        "x-dead-letter-exchange", dlxExchange,
+                        "x-message-ttl", messageTTL
+                ));
+    }
+
+    // Dead Letter Exchange and Queue
+    @Bean
+    public TopicExchange deadLetterExchange() {
+        return new TopicExchange(dlxExchange, true, false);
+    }
+
+    @Bean
+    public Queue deadLetterQueue() {
+        return new Queue(dlqQueue, true);
+    }
+
+    @Bean
+    public Binding deadLetterBinding() {
+        return BindingBuilder
+                .bind(deadLetterQueue())
+                .to(deadLetterExchange())
+                .with("#");
+    }
+
+    @Bean
+    public TopicExchange reservationsExchange() {
+        return new TopicExchange(reservationsExchange);
+    }
+
+    @Bean
+    public Binding reservationCreatedBinding() {
+        return BindingBuilder
+                .bind(reservationCreatedQueue())
+                .to(reservationsExchange())
+                .with("reservation.created");
+    }
+
+    @Bean
+    public Binding reservationCancelledBinding() {
+        return BindingBuilder
+                .bind(reservationCancelledQueue())
+                .to(reservationsExchange())
+                .with("reservation.cancelled");
+    }
+
+    @Bean
+    public Binding reservationRevokedBinding() {
+        return BindingBuilder
+                .bind(reservationRevokedQueue())
+                .to(reservationsExchange())
+                .with("reservation.revoked");
+    }
+
+    @Bean
+    public Binding reservationApprovedBinding() {
+        return BindingBuilder
+                .bind(reservationApprovedQueue())
+                .to(reservationsExchange())
+                .with("reservation.approved");
+    }
+
+    @Bean
+    public MessageConverter jsonMessageConverter() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        return new Jackson2JsonMessageConverter(objectMapper);
+    }
+
+    @Bean
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
+        RabbitTemplate template = new RabbitTemplate(connectionFactory);
+        template.setMessageConverter(jsonMessageConverter());
+        return template;
+    }
+}

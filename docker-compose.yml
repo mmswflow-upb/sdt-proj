@@ -1,0 +1,137 @@
+name: sdt-campus-reservations
+
+services:
+  # Database for the reservation-service
+  reservation-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ${RESERVATION_DB_NAME:-reservation}
+      POSTGRES_USER: ${RESERVATION_DB_USER:-reservation}
+      POSTGRES_PASSWORD: ${RESERVATION_DB_PASSWORD:-reservation}
+    ports:
+      - "5433:5432"
+
+  # Database for the scheduling-service
+  scheduling-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ${SCHEDULING_DB_NAME:-scheduling}
+      POSTGRES_USER: ${SCHEDULING_DB_USER:-scheduling}
+      POSTGRES_PASSWORD: ${SCHEDULING_DB_PASSWORD:-scheduling}
+    ports:
+      - "5434:5432"
+
+  # Database for the faculty-service
+  faculty-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ${FACULTY_DB_NAME:-faculty}
+      POSTGRES_USER: ${FACULTY_DB_USER:-faculty}
+      POSTGRES_PASSWORD: ${FACULTY_DB_PASSWORD:-faculty}
+    ports:
+      - "5435:5432"
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # reservation-service
+  reservation-service:
+    build: ./reservation-service
+    depends_on:
+      reservation-db:
+        condition: service_started
+      scheduling-service:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://reservation-db:5432/${RESERVATION_DB_NAME:-reservation}
+      SPRING_DATASOURCE_USERNAME: ${RESERVATION_DB_USER:-reservation}
+      SPRING_DATASOURCE_PASSWORD: ${RESERVATION_DB_PASSWORD:-reservation}
+      SECURITY_JWT_SECRET: ${SECURITY_JWT_SECRET:-mysecretkeymysecretkeymysecretkey}
+      SCHEDULING_SERVICE_BASE_URL: http://scheduling-service:8080
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_EXCHANGE_RESERVATIONS: ${RABBITMQ_EXCHANGE_RESERVATIONS:-reservations.exchange}
+      RABBITMQ_QUEUE_RESERVATION_CREATED: ${RABBITMQ_QUEUE_RESERVATION_CREATED:-reservation.created}
+      RABBITMQ_QUEUE_RESERVATION_CANCELLED: ${RABBITMQ_QUEUE_RESERVATION_CANCELLED:-reservation.cancelled}
+      RABBITMQ_QUEUE_RESERVATION_REVOKED: ${RABBITMQ_QUEUE_RESERVATION_REVOKED:-reservation.revoked}
+    ports:
+      - "8081:8080"
+
+  # scheduling-service
+  scheduling-service:
+    build: ./scheduling-service
+    depends_on:
+      - scheduling-db
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://scheduling-db:5432/${SCHEDULING_DB_NAME:-scheduling}
+      SPRING_DATASOURCE_USERNAME: ${SCHEDULING_DB_USER:-scheduling}
+      SPRING_DATASOURCE_PASSWORD: ${SCHEDULING_DB_PASSWORD:-scheduling}
+      SECURITY_JWT_SECRET: ${SECURITY_JWT_SECRET:-mysecretkeymysecretkeymysecretkey}
+    ports:
+      - "8082:8080"
+
+  # faculty-service
+  faculty-service:
+    build: ./faculty-service
+    depends_on:
+      - faculty-db
+      - scheduling-service
+      - reservation-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://faculty-db:5432/${FACULTY_DB_NAME:-faculty}
+      SPRING_DATASOURCE_USERNAME: ${FACULTY_DB_USER:-faculty}
+      SPRING_DATASOURCE_PASSWORD: ${FACULTY_DB_PASSWORD:-faculty}
+      SECURITY_JWT_SECRET: ${SECURITY_JWT_SECRET:-mysecretkeymysecretkeymysecretkey}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      SCHEDULING_SERVICE_BASE_URL: http://scheduling-service:8080
+      RESERVATION_SERVICE_BASE_URL: http://reservation-service:8080
+    ports:
+      - "8083:8080"
+
+  # gateway-service (API Gateway)
+  gateway-service:
+    build: ./gateway-service
+    depends_on:
+      - faculty-service
+      - reservation-service
+      - scheduling-service
+    environment:
+      SECURITY_JWT_SECRET: ${SECURITY_JWT_SECRET:-mysecretkeymysecretkeymysecretkey}
+    ports:
+      - "8080:8080"
+
+  # notification-service
+  notification-service:
+    build: ./notification-service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_EXCHANGE_RESERVATIONS: ${RABBITMQ_EXCHANGE_RESERVATIONS:-reservations.exchange}
+      RABBITMQ_QUEUE_RESERVATION_CREATED: ${RABBITMQ_QUEUE_RESERVATION_CREATED:-reservation.created}
+      RABBITMQ_QUEUE_RESERVATION_CANCELLED: ${RABBITMQ_QUEUE_RESERVATION_CANCELLED:-reservation.cancelled}
+      RABBITMQ_QUEUE_RESERVATION_REVOKED: ${RABBITMQ_QUEUE_RESERVATION_REVOKED:-reservation.revoked}
+    ports:
+      - "8084:8084"

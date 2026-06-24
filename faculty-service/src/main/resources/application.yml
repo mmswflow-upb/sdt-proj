@@ -1,0 +1,29 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://faculty-db:5432/faculty}
+    username: ${SPRING_DATASOURCE_USERNAME:faculty}
+    password: ${SPRING_DATASOURCE_PASSWORD:faculty}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+security:
+  jwt:
+    secret: ${SECURITY_JWT_SECRET:mysecretkeymysecretkeymysecretkey}
+
+admin:
+  username: ${ADMIN_USERNAME:admin}
+  password: ${ADMIN_PASSWORD:admin}
+
+scheduling:
+  service:
+    base-url: ${SCHEDULING_SERVICE_BASE_URL:http://scheduling-service:8080}
+reservation:
+  service:
+    base-url: ${RESERVATION_SERVICE_BASE_URL:http://reservation-service:8080}

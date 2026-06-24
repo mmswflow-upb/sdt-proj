@@ -1,0 +1,52 @@
+name: Local Docker Deployment
+
+on:
+  push:
+    branches:
+      - 5-microservices-extended
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Verify Docker is running
+        run: docker ps
+      
+      - name: Stop and remove containers with volumes
+        run: docker-compose down -v --remove-orphans
+        continue-on-error: true
+      
+      - name: Remove project images
+        run: |
+          docker-compose images -q | ForEach-Object { docker rmi $_ -f }
+        continue-on-error: true
+      
+      - name: Setup environment variables
+        run: |
+          if (Test-Path .env) {
+            Write-Host ".env file already exists, removing it"
+            Remove-Item .env
+          }
+          Write-Host "Creating .env from .env.example"
+          Copy-Item .env.example .env
+          Write-Host ".env file created successfully"
+      
+      - name: Build Docker images (includes unit tests)
+        run: |
+          Write-Host "Building Docker images (Maven will run unit tests during build)..."
+          docker-compose build --no-cache
+      
+      - name: Start services
+        run: docker-compose up -d
+      
+      - name: Show running containers
+        run: docker-compose ps
+      
+      - name: Show service logs (last 50 lines)
+        run: docker-compose logs --tail=50
+        continue-on-error: true

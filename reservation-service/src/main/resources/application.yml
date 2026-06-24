@@ -1,0 +1,40 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://reservation-db:5432/reservation}
+    username: ${SPRING_DATASOURCE_USERNAME:reservation}
+    password: ${SPRING_DATASOURCE_PASSWORD:reservation}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    publisher-confirms: true
+    publisher-returns: true
+
+security:
+  jwt:
+    secret: ${SECURITY_JWT_SECRET:mysecretkeymysecretkeymysecretkey}
+
+rabbitmq:
+  exchange:
+    reservations: ${RABBITMQ_EXCHANGE_RESERVATIONS:reservations.exchange}
+  queue:
+    reservation-created: ${RABBITMQ_QUEUE_RESERVATION_CREATED:reservation.created}
+    reservation-cancelled: ${RABBITMQ_QUEUE_RESERVATION_CANCELLED:reservation.cancelled}
+    reservation-revoked: ${RABBITMQ_QUEUE_RESERVATION_REVOKED:reservation.revoked}
+    reservation-approved: ${RABBITMQ_QUEUE_RESERVATION_APPROVED:reservation.approved}
+  message:
+    ttl: ${RABBITMQ_MESSAGE_TTL:60000}
+
+scheduling:
+  service:
+    base-url: ${SCHEDULING_SERVICE_BASE_URL:http://scheduling-service:8080}
